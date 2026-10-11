@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin Profile — CabGo</title>
+  <meta name="description" content="Manage root Super Administrator credentials and profile security." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:var(--space-6)">
+
+        <!-- Left identity card -->
+        <div class="card text-center">
+          <div class="avatar" style="width:84px;height:84px;font-size:2rem;margin:0 auto var(--space-4) auto;background:linear-gradient(135deg,#a855f7,#6366f1)" id="sa-avatar">👑</div>
+          <h3 id="sa-name" style="margin-bottom:var(--space-1)">Super Admin</h3>
+          <p id="sa-email" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:var(--space-3)">superadmin@cabsystem.com</p>
+          <span class="badge badge-purple">Root Super Administrator</span>
+
+          <div style="border-top:1px solid var(--border);padding-top:var(--space-4);margin-top:var(--space-4);text-align:left">
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Privilege Level</span>
+              <strong style="color:var(--accent)">Unrestricted</strong>
+            </div>
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Status</span>
+              <span class="badge badge-green">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right edit form -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Root Administrator Credentials</h3>
+              <p class="card-subtitle">Update contact details</p>
+            </div>
+          </div>
+
+          <form id="sa-profile-form" onsubmit="event.preventDefault(); saveSaProfile();">
+            <div class="form-group mb-4">
+              <label class="form-label">Full Name</label>
+              <input type="text" id="name-input" class="form-control" required />
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="email-input" class="form-control" disabled />
+            </div>
+
+            <div class="form-group mb-5">
+              <label class="form-label">Mobile Number</label>
+              <input type="tel" id="mobile-input" class="form-control" required />
+            </div>
+
+            <button type="submit" id="save-btn" class="btn btn-primary">
+              💾 Save Profile Details
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('superadmin');
+  buildSidebar('superadmin', 'My Profile');
+  UI.populateSidebarUser();
+
+  async function loadProfile() {
+    const res = await API.get('/api/auth/me');
+    if (!res.success) return;
+    const u = res.data;
+
+    document.getElementById('sa-name').textContent = u.name;
+    document.getElementById('sa-email').textContent = u.email;
+    document.getElementById('name-input').value = u.name || '';
+    document.getElementById('email-input').value = u.email || '';
+    document.getElementById('mobile-input').value = u.mobile || '';
+  }
+
+  async function saveSaProfile() {
+    const btn = document.getElementById('save-btn');
+    UI.setLoading(btn, true, 'Saving...');
+
+    const res = await API.put('/api/passenger/profile', {
+      name: document.getElementById('name-input').value.trim(),
+      mobile: document.getElementById('mobile-input').value.trim()
+    });
+
+    UI.setLoading(btn, false, '💾 Save Profile Details');
+
+    if (res.success) {
+      UI.success('Profile updated successfully!');
+      loadProfile();
+    } else {
+      UI.error(res.message || 'Update failed');
+    }
+  }
+
+  loadProfile();
+</script>
+</body>
+</html>

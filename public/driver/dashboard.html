@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Driver Dashboard — CabGo</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .online-toggle-card {
+      background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.04));
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+    .request-card {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-bottom: var(--space-3);
+      transition: var(--transition);
+    }
+    .request-card:hover { border-color: var(--border-accent); }
+    .request-route { display:flex;align-items:center;gap:var(--space-3);margin:var(--space-3) 0; }
+    .route-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+
+        <!-- Online Toggle + Status -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+          <div class="card online-toggle-card">
+            <h3 style="margin-bottom:var(--space-4)">🚦 Driver Status</h3>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5)">
+              <div>
+                <p id="status-label" style="font-size:1.1rem;font-weight:700;color:var(--success)">ONLINE</p>
+                <p style="font-size:0.8rem;color:var(--text-muted)">Ready to accept rides</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" class="toggle-input" id="availability-toggle" onchange="toggleAvailability()" />
+                <span class="toggle-label">
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </span>
+              </label>
+            </div>
+            <div id="driver-verify-status"></div>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom:var(--space-4)">💰 Today's Earnings</h3>
+            <div class="fare-amount" id="today-earnings" style="font-size:2.5rem">₹0.00</div>
+            <p style="color:var(--text-muted);font-size:0.875rem;margin-top:var(--space-2)">
+              <span id="today-trips">0</span> trips today
+            </p>
+            <div style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;font-size:0.875rem">
+                <span style="color:var(--text-muted)">This Week</span>
+                <strong id="week-earnings">₹0.00</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-top:var(--space-2)">
+                <span style="color:var(--text-muted)">This Month</span>
+                <strong id="month-earnings">₹0.00</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Incoming Ride Requests -->
+        <div class="card">
+          <div class="flex justify-between items-center" style="margin-bottom:var(--space-4)">
+            <h3>📬 Incoming Requests</h3>
+            <div style="display:flex;align-items:center;gap:var(--space-2)">
+              <span class="pulse-dot" style="display:inline-block;width:8px;height:8px;background:var(--success);border-radius:50%;position:relative">
+                <span style="position:absolute;inset:-4px;border-radius:50%;background:rgba(34,197,94,0.3);animation:pulse-ring 1.5s infinite"></span>
+              </span>
+              <span style="font-size:0.75rem;color:var(--text-muted)">Live</span>
+            </div>
+          </div>
+          <div id="requests-list">
+            <div class="empty-state" style="padding:var(--space-6)">
+              <div class="spinner"></div>
+              <p style="margin-top:var(--space-3);color:var(--text-muted)">Loading requests...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Trip (if any) -->
+      <div class="card" id="active-trip-section" style="display:none;margin-bottom:var(--space-6)">
+        <h3 style="margin-bottom:var(--space-4)">🚦 Active Trip</h3>
+        <div id="active-trip-content"></div>
+      </div>
+
+      <!-- Recent Trips -->
+      <div class="card">
+        <div class="flex justify-between items-center" style="margin-bottom:var(--space-4)">
+          <h3>📋 Recent Trips</h3>
+          <a href="/driver/earnings.html" class="btn btn-ghost btn-sm">View Earnings →</a>
+        </div>
+        <div id="recent-trips-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .pulse-dot { display:inline-block; }
+</style>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('driver');
+  buildSidebar('driver','Dashboard');
+  UI.populateSidebarUser();
+
+  let pollInterval;
+
+  async function loadDashboard() {
+    // Earnings
+    const earnRes = await API.get('/api/driver/earnings');
+    if (earnRes.success) {
+      const s = earnRes.data.summary;
+      document.getElementById('today-earnings').textContent  = UI.rupee(s.today_earnings);
+      document.getElementById('week-earnings').textContent   = UI.rupee(s.week_earnings);
+      document.getElementById('month-earnings').textContent  = UI.rupee(s.month_earnings);
+      document.getElementById('today-trips').textContent     = s.total_trips || 0;
+
+      document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card animate-fade-up">
+          <div class="stat-icon green">🚀</div>
+          <div class="stat-content"><div class="stat-label">Total Trips</div><div class="stat-value">${s.total_trips}</div></div>
+        </div>
+        <div class="stat-card animate-fade-up" style="animation-delay:.1s">
+          <div class="stat-icon amber">💰</div>
+          <div class="stat-content"><div class="stat-label">Total Earned</div><div class="stat-value">${UI.rupee(s.total_earnings)}</div></div>
+        </div>
+        <div class="stat-card animate-fade-up" style="animation-delay:.2s">
+          <div class="stat-icon blue">📅</div>
+          <div class="stat-content"><div class="stat-label">This Month</div><div class="stat-value">${UI.rupee(s.month_earnings)}</div></div>
+        </div>
+        <div class="stat-card animate-fade-up" style="animation-delay:.3s">
+          <div class="stat-icon cyan">📆</div>
+          <div class="stat-content"><div class="stat-label">This Week</div><div class="stat-value">${UI.rupee(s.week_earnings)}</div></div>
+        </div>`;
+    }
+
+    // Profile + availability
+    const prof = await API.get('/api/driver/profile');
+    if (prof.success) {
+      const d = prof.data;
+      const toggle = document.getElementById('availability-toggle');
+      toggle.checked = d.availability === 'online';
+      document.getElementById('status-label').textContent = d.availability === 'online' ? 'ONLINE' : 'OFFLINE';
+      document.getElementById('status-label').style.color = d.availability === 'online' ? 'var(--success)' : 'var(--danger)';
+
+      if (d.verification_status !== 'approved') {
+        document.getElementById('driver-verify-status').innerHTML =
+          `<div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);padding:var(--space-3)">
+            <p style="font-size:0.8rem;color:var(--warning)">⚠️ Account pending admin approval. You cannot go online yet.</p>
+          </div>`;
+      }
+    }
+
+    // Active Trip
+    const activeRes = await API.get('/api/driver/active-trip');
+    if (activeRes.data) {
+      const t = activeRes.data;
+      document.getElementById('active-trip-section').style.display = 'block';
+      document.getElementById('active-trip-content').innerHTML = `
+        <div style="display:flex;gap:var(--space-6);flex-wrap:wrap">
+          <div style="flex:1">
+            <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-3)">
+              ${UI.badge(t.trip_status)}
+            </div>
+            <div style="margin-bottom:var(--space-2)"><small style="color:var(--text-muted)">Pickup</small><br><strong>${t.pickup_location}</strong></div>
+            <div><small style="color:var(--text-muted)">Drop</small><br><strong>${t.destination}</strong></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+            <div class="fare-amount" style="font-size:1.5rem">${UI.rupee(t.estimated_fare)}</div>
+            <div style="display:flex;gap:var(--space-3)">
+              ${t.trip_status === 'assigned' ? `<button class="btn btn-success" onclick="startTrip(${t.trip_id})">▶️ Start Trip</button>` : ''}
+              ${t.trip_status === 'started'  ? `<button class="btn btn-primary" onclick="completeTrip(${t.trip_id})">✅ Complete Trip</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('active-trip-section').style.display = 'none';
+    }
+
+    loadRequests();
+  }
+
+  async function loadRequests() {
+    const res = await API.get('/api/driver/requests');
+    const reqs = res.data || [];
+    if (!reqs.length) {
+      document.getElementById('requests-list').innerHTML = UI.empty('📭','No pending requests','Go online and wait for ride requests.');
+      return;
+    }
+    document.getElementById('requests-list').innerHTML = reqs.map(r => `
+      <div class="request-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <strong style="font-size:0.875rem">${r.passenger_name}</strong>
+            <span style="font-size:0.75rem;color:var(--text-muted);margin-left:8px">📞 ${r.passenger_mobile}</span>
+          </div>
+          <span class="fare-amount" style="font-size:1.2rem">${UI.rupee(r.estimated_fare)}</span>
+        </div>
+        <div style="margin:var(--space-3) 0">
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:2px">📍 ${r.pickup_location}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted)">🏁 ${r.destination}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">📏 ${r.estimated_km||'~5'} km · ${r.vehicle_type}</div>
+        </div>
+        <div style="display:flex;gap:var(--space-3)">
+          <button class="btn btn-success btn-sm" onclick="respondRequest(${r.request_id},'accept')">✅ Accept</button>
+          <button class="btn btn-ghost btn-sm" onclick="respondRequest(${r.request_id},'reject')">✕ Reject</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function toggleAvailability() {
+    const isOnline = document.getElementById('availability-toggle').checked;
+    const res = await API.put('/api/driver/availability', { availability: isOnline ? 'online' : 'offline' });
+    if (res.success) {
+      document.getElementById('status-label').textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+      document.getElementById('status-label').style.color = isOnline ? 'var(--success)' : 'var(--danger)';
+      UI.success(isOnline ? 'You are now online! Looking for rides...' : 'You are now offline');
+    } else {
+      document.getElementById('availability-toggle').checked = !isOnline;
+      UI.error(res.message);
+    }
+  }
+
+  async function respondRequest(id, action) {
+    const res = await API.put(`/api/driver/requests/${id}`, { action });
+    if (res.success) {
+      UI.success(action === 'accept' ? 'Ride accepted! Head to pickup location.' : 'Request rejected');
+      loadDashboard();
+    } else UI.error(res.message);
+  }
+
+  async function startTrip(tripId) {
+    const res = await API.put(`/api/driver/trips/${tripId}/start`, {});
+    if (res.success) { UI.success('Trip started!'); loadDashboard(); }
+    else UI.error(res.message);
+  }
+
+  async function completeTrip(tripId) {
+    const dist = prompt('Enter distance in km:') || '5';
+    const res = await API.put(`/api/driver/trips/${tripId}/complete`, { distance_km: parseFloat(dist) });
+    if (res.success) { UI.success(res.message || 'Trip completed!'); loadDashboard(); }
+    else UI.error(res.message);
+  }
+
+  loadDashboard();
+  pollInterval = setInterval(loadRequests, 5000);
+  window.addEventListener('beforeunload', () => clearInterval(pollInterval));
+</script>
+</body>
+</html>

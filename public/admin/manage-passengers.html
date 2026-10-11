@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Passengers — CabGo Admin</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <div><h1>👥 Manage Passengers</h1><p>View and manage all registered passengers</p></div>
+      </div>
+
+      <div class="table-wrapper">
+        <div class="table-header">
+          <div class="table-search">
+            <span class="table-search-icon">🔍</span>
+            <input type="text" placeholder="Search passengers..." id="p-search" oninput="loadPassengers()" />
+          </div>
+          <span id="p-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+        </div>
+        <div id="passengers-table">
+          <div class="empty-state"><div class="spinner spinner-lg"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('admin','superadmin');
+  buildSidebar(Auth.getUser().role, 'Manage Passengers');
+  UI.populateSidebarUser();
+
+  async function loadPassengers() {
+    const search = document.getElementById('p-search').value;
+    const res = await API.get('/api/admin/passengers', { search });
+    const passengers = res.data?.passengers || [];
+    document.getElementById('p-count').textContent = `${res.data?.total || passengers.length} passengers`;
+
+    document.getElementById('passengers-table').innerHTML = passengers.length ? `
+      <table><thead><tr>
+        <th>Passenger</th><th>Mobile</th><th>Address</th><th>Bookings</th><th>Status</th><th>Joined</th><th>Actions</th>
+      </tr></thead><tbody>
+      ${passengers.map(p => `<tr>
+        <td><strong>${p.name}</strong><br><small style="color:var(--text-muted)">${p.email}</small></td>
+        <td>${p.mobile}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${(p.default_address||'—').substring(0,30)}</td>
+        <td><strong>${p.total_bookings}</strong></td>
+        <td>${UI.badge(p.status)}</td>
+        <td style="font-size:0.8rem">${new Date(p.created_at).toLocaleDateString('en-IN')}</td>
+        <td>
+          ${p.status==='blocked'
+            ? `<button class="btn btn-ghost btn-sm" onclick="blockUser(${p.user_id},'unblock')">🔓 Unblock</button>`
+            : `<button class="btn btn-danger btn-sm" onclick="blockUser(${p.user_id},'block')">🔒 Block</button>`}
+        </td>
+      </tr>`).join('')}
+      </tbody></table>`
+    : UI.empty('👥','No passengers found','Adjust your search.');
+  }
+
+  async function blockUser(userId, action) {
+    if (!UI.confirm(`${action} this user?`)) return;
+    const res = await API.put(`/api/admin/users/${userId}/block`, { action });
+    if (res.success) { UI.success(`User ${action}ed`); loadPassengers(); }
+    else UI.error(res.message);
+  }
+
+  loadPassengers();
+</script>
+</body>
+</html>

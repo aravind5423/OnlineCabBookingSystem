@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ride Requests — CabGo Driver</title>
+  <meta name="description" content="View and accept live ride requests from passengers in your service area in real-time." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .request-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      margin-bottom: var(--space-4);
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    .request-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 8px 24px -4px rgba(0,0,0,0.4);
+    }
+    .request-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: var(--space-3);
+    }
+    .request-passenger {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .avatar-sm {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--grad-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; color: #fff;
+    }
+    .radar-box {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-5);
+    }
+    .radar-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <!-- Status radar banner -->
+      <div class="radar-box">
+        <div class="radar-dot"></div>
+        <div style="flex:1">
+          <strong style="color:var(--text-primary);font-size:0.95rem">Live Dispatch Radar Active</strong>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin:0">
+            Refreshing incoming requests every 5 seconds. Accept quickly to claim trips.
+          </p>
+        </div>
+        <span class="badge badge-amber" id="request-count-badge">0 Requests</span>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Incoming Passenger Bookings</h3>
+            <p class="card-subtitle">Pending requests matching your vehicle category</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadRequests()">🔄 Refresh Now</button>
+        </div>
+
+        <div id="requests-list">
+          <div class="skeleton" style="height:120px;border-radius:var(--radius-lg);margin-bottom:12px"></div>
+          <div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('driver');
+  buildSidebar('driver', 'Ride Requests');
+  UI.populateSidebarUser();
+
+  let pollInterval = null;
+
+  async function loadRequests() {
+    const res = await API.get('/api/driver/requests');
+    const container = document.getElementById('requests-list');
+    const countBadge = document.getElementById('request-count-badge');
+
+    if (!res.success) {
+      container.innerHTML = UI.empty('⚠️', 'Error Loading Requests', res.message || 'Please ensure your profile is approved.');
+      return;
+    }
+
+    const list = res.data || [];
+    countBadge.textContent = `${list.length} Request${list.length === 1 ? '' : 's'}`;
+
+    if (!list.length) {
+      container.innerHTML = UI.empty('📬', 'No Incoming Requests', 'Waiting for passengers to book trips in your area...');
+      return;
+    }
+
+    container.innerHTML = list.map(req => `
+      <div class="request-card animate-fade-up">
+        <div class="request-header">
+          <div class="request-passenger">
+            <div class="avatar-sm">${(req.passenger_name || 'P')[0].toUpperCase()}</div>
+            <div>
+              <strong style="color:var(--text-primary)">${req.passenger_name}</strong>
+              <div style="font-size:0.8rem;color:var(--text-muted)">📞 ${req.passenger_mobile}</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent)">${UI.rupee(req.estimated_fare)}</div>
+            <span class="badge badge-blue">${req.vehicle_type ? req.vehicle_type.toUpperCase() : 'CAB'}</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);background:rgba(255,255,255,0.02);padding:var(--space-3);border-radius:var(--radius-md)">
+          <div>
+            <small style="color:var(--text-muted);display:block;font-size:0.75rem">📍 PICKUP</small>
+            <strong style="font-size:0.9rem">${req.pickup_location}</strong>
+          </div>
+          <div>
+            <small style="color:var(--text-muted);display:block;font-size:0.75rem">🏁 DESTINATION</small>
+            <strong style="font-size:0.9rem">${req.destination}</strong>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:var(--space-2)">
+          <span style="font-size:0.8rem;color:var(--text-muted)">Requested ${UI.formatDate(req.requested_at)}</span>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost btn-sm" onclick="respond(${req.request_id}, 'reject')">❌ Decline</button>
+            <button class="btn btn-primary btn-sm" onclick="respond(${req.request_id}, 'accept')">✅ Accept Ride</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function respond(requestId, action) {
+    const res = await API.put(`/api/driver/requests/${requestId}`, { action });
+    if (res.success) {
+      if (action === 'accept') {
+        UI.success('Trip accepted! Redirecting to active trip navigation...');
+        setTimeout(() => window.location.href = '/driver/active-trip.html', 1200);
+      } else {
+        UI.info('Ride request declined');
+        loadRequests();
+      }
+    } else {
+      UI.error(res.message || 'Action failed');
+    }
+  }
+
+  loadRequests();
+  // Live polling every 5s
+  pollInterval = setInterval(loadRequests, 5000);
+  window.addEventListener('beforeunload', () => clearInterval(pollInterval));
+</script>
+</body>
+</html>

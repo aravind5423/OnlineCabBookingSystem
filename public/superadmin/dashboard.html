@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin Dashboard — CabGo</title>
+  <meta name="description" content="Super Administrator overview: system-wide telemetry, administrator governance, global revenues, and audit oversight." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .super-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+    .system-health-banner {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(59, 130, 246, 0.1));
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      margin-bottom: var(--space-6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <!-- System Health Banner -->
+      <div class="system-health-banner animate-fade-up">
+        <div class="flex items-center gap-4">
+          <div style="font-size:2.4rem">🛡️</div>
+          <div>
+            <h3 style="font-size:1.25rem;color:var(--text-primary);margin-bottom:2px">Root Platform Administration</h3>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin:0">
+              Operating with full privileges: User role administration, system logs audit, and financial rules control.
+            </p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <span class="badge badge-purple" style="font-size:0.8rem">Super Admin Mode</span>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="super-grid" id="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon purple">👥</div>
+          <div class="stat-content">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="stat-users">0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon blue">🛡️</div>
+          <div class="stat-content">
+            <div class="stat-label">System Admins</div>
+            <div class="stat-value" id="stat-admins">0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon green">💰</div>
+          <div class="stat-content">
+            <div class="stat-label">Gross Revenue</div>
+            <div class="stat-value" id="stat-revenue">₹0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon amber">🚖</div>
+          <div class="stat-content">
+            <div class="stat-label">Total Trips</div>
+            <div class="stat-value" id="stat-trips">0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon red">⚠️</div>
+          <div class="stat-content">
+            <div class="stat-label">Blocked Accounts</div>
+            <div class="stat-value" id="stat-blocked">0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon blue">📋</div>
+          <div class="stat-content">
+            <div class="stat-label">Today's Audit Logs</div>
+            <div class="stat-value" id="stat-logs">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module Shortcuts & Quick Navigation -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🔐 Administrative Controls</h3>
+            <span class="badge badge-purple">Core Security</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+            <a href="/superadmin/manage-admins.html" class="btn btn-secondary flex justify-between items-center">
+              <span>⚙️ Manage Administrator Accounts</span>
+              <span>→</span>
+            </a>
+            <a href="/superadmin/permissions.html" class="btn btn-secondary flex justify-between items-center">
+              <span>🔑 Role Permissions & Privileges</span>
+              <span>→</span>
+            </a>
+            <a href="/superadmin/system-logs.html" class="btn btn-secondary flex justify-between items-center">
+              <span>📋 Comprehensive Audit Logs</span>
+              <span>→</span>
+            </a>
+            <a href="/superadmin/system-settings.html" class="btn btn-secondary flex justify-between items-center">
+              <span>🛠️ Global System Configuration</span>
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🌐 Platform Operations</h3>
+            <span class="badge badge-blue">Fleet & Pricing</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+            <a href="/admin/manage-passengers.html" class="btn btn-secondary flex justify-between items-center">
+              <span>👥 Passenger Directory & Blocks</span>
+              <span>→</span>
+            </a>
+            <a href="/admin/manage-drivers.html" class="btn btn-secondary flex justify-between items-center">
+              <span>🚗 Driver Verification & Onboarding</span>
+              <span>→</span>
+            </a>
+            <a href="/admin/fare-rules.html" class="btn btn-secondary flex justify-between items-center">
+              <span>💲 Vehicle Tariffs & Surge Multipliers</span>
+              <span>→</span>
+            </a>
+            <a href="/admin/reports.html" class="btn btn-secondary flex justify-between items-center">
+              <span>📈 Financial & Revenue Analytics</span>
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('superadmin');
+  buildSidebar('superadmin', 'Dashboard');
+  UI.populateSidebarUser();
+
+  async function loadDashboard() {
+    const res = await API.get('/api/superadmin/dashboard');
+    if (!res.success) {
+      UI.error(res.message || 'Failed to load telemetry');
+      return;
+    }
+
+    const d = res.data;
+    document.getElementById('stat-users').textContent = d.total_users || 0;
+    document.getElementById('stat-admins').textContent = d.total_admins || 0;
+    document.getElementById('stat-revenue').textContent = UI.rupee(d.total_revenue || 0);
+    document.getElementById('stat-trips').textContent = d.total_trips || 0;
+    document.getElementById('stat-blocked').textContent = d.blocked_users || 0;
+    document.getElementById('stat-logs').textContent = d.today_logs || 0;
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Driver Earnings — CabGo</title>
+  <meta name="description" content="View your daily, weekly, and monthly earnings breakdown, payout history, and trip fares." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <!-- Earnings KPI Cards -->
+      <div class="stats-grid" id="earnings-stats">
+        <div class="stat-card">
+          <div class="stat-icon green">💰</div>
+          <div class="stat-content">
+            <div class="stat-label">Today's Earnings</div>
+            <div class="stat-value" id="today-val">₹0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon blue">📅</div>
+          <div class="stat-content">
+            <div class="stat-label">This Week</div>
+            <div class="stat-value" id="week-val">₹0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon purple">🗓️</div>
+          <div class="stat-content">
+            <div class="stat-label">This Month</div>
+            <div class="stat-value" id="month-val">₹0</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon amber">🏆</div>
+          <div class="stat-content">
+            <div class="stat-label">Lifetime Total</div>
+            <div class="stat-value" id="lifetime-val">₹0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed Trips List -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Completed Trips & Payouts</h3>
+            <p class="card-subtitle">Recent fares settled directly to your balance</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadEarnings()">🔄 Refresh</button>
+        </div>
+
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Trip ID</th>
+                <th>Route Details</th>
+                <th>Completed Time</th>
+                <th>Fare Earned</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="earnings-table-body">
+              <tr><td colspan="5" style="text-align:center;padding:var(--space-6)">Loading earnings data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('driver');
+  buildSidebar('driver', 'Earnings');
+  UI.populateSidebarUser();
+
+  async function loadEarnings() {
+    const res = await API.get('/api/driver/earnings');
+    if (!res.success) {
+      UI.error(res.message || 'Failed to load earnings');
+      return;
+    }
+
+    const { summary, recent_trips } = res.data;
+
+    document.getElementById('today-val').textContent = UI.rupee(summary?.today_earnings || 0);
+    document.getElementById('week-val').textContent = UI.rupee(summary?.week_earnings || 0);
+    document.getElementById('month-val').textContent = UI.rupee(summary?.month_earnings || 0);
+    document.getElementById('lifetime-val').textContent = UI.rupee(summary?.total_earnings || 0);
+
+    const tbody = document.getElementById('earnings-table-body');
+    if (!recent_trips || !recent_trips.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:var(--space-6);color:var(--text-muted)">No completed trips yet. Start accepting rides to build your earnings!</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = recent_trips.map(trip => `
+      <tr>
+        <td><strong>#TRIP-${trip.trip_id}</strong></td>
+        <td>
+          <div style="font-size:0.9rem;font-weight:600">${trip.pickup_location}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted)">→ ${trip.destination}</div>
+        </td>
+        <td>${UI.formatDate(trip.end_time || trip.start_time)}</td>
+        <td style="font-weight:700;color:var(--accent);font-size:1.05rem">${UI.rupee(trip.fare)}</td>
+        <td><span class="badge badge-green">Paid</span></td>
+      </tr>
+    `).join('');
+  }
+
+  loadEarnings();
+</script>
+</body>
+</html>

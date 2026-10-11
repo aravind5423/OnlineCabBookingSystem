@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search Rides & Fare Calculator — CabGo</title>
+  <meta name="description" content="Search available cabs, estimate trip fares across multiple vehicle types, and check real-time availability in your city with CabGo." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .search-hero {
+      padding: var(--space-8) 0 var(--space-6);
+      text-align: center;
+      position: relative;
+    }
+    .search-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 var(--space-4);
+    }
+    .fare-card-item {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+    .fare-card-item:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+    }
+    .cab-specs {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+    .cab-icon-badge {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      background: var(--grad-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Public Top Navigation -->
+  <nav class="navbar" style="border-bottom: 1px solid var(--border); padding: var(--space-4) var(--space-8);">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+      <a href="/" style="display: flex; align-items: center; gap: var(--space-2); text-decoration: none;">
+        <span style="font-size: 1.8rem;">🚖</span>
+        <span style="font-size: 1.4rem; font-weight: 800; color: #fff;">Cab<span style="color: var(--accent);">Go</span></span>
+      </a>
+      <div style="display: flex; gap: var(--space-4); align-items: center;">
+        <a href="/" class="btn btn-ghost btn-sm">Home</a>
+        <a href="/login.html" class="btn btn-secondary btn-sm">Sign In</a>
+        <a href="/register.html" class="btn btn-primary btn-sm">Sign Up</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="search-container">
+    <div class="search-hero animate-fade-up">
+      <span class="badge badge-blue mb-3">Live Rate Estimator</span>
+      <h1 style="font-size: 2.5rem; margin-bottom: var(--space-2);">Find Cabs & Compare Fares</h1>
+      <p style="color: var(--text-muted); font-size: 1.05rem;">
+        Get transparent, upfront fare estimates for any destination before booking.
+      </p>
+    </div>
+
+    <!-- Search Form Card -->
+    <div class="card mb-6 animate-fade-up" style="animation-delay: 0.1s;">
+      <form id="search-form" onsubmit="event.preventDefault(); performSearch();">
+        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--space-4); align-items: flex-end;">
+          <div class="form-group">
+            <label class="form-label">📍 Pickup Location</label>
+            <input type="text" id="pickup-input" class="form-control" placeholder="Enter pickup address" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏁 Destination</label>
+            <input type="text" id="destination-input" class="form-control" placeholder="Enter drop address" required />
+          </div>
+          <button type="submit" id="search-btn" class="btn btn-primary" style="height: 48px; padding: 0 var(--space-6);">
+            🔍 Search Cabs
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Results Container -->
+    <div id="results-wrapper" style="display: none;" class="animate-fade-up">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+        <h3 style="font-size: 1.25rem;">Available Categories & Fare Estimates</h3>
+        <span id="route-meta" class="badge badge-purple">Distance ~8.5 km</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: var(--space-4);" id="fare-cards-list">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script>
+  const categories = [
+    { type: 'sedan', name: 'Sedan Prime', desc: 'Comfortable air-conditioned 4-seater', icon: '🚘', base: 60, perKm: 12 },
+    { type: 'suv', name: 'SUV Supreme', desc: 'Spacious 6-7 seater for families', icon: '🚙', base: 90, perKm: 16 },
+    { type: 'hatchback', name: 'Mini Hatch', desc: 'Affordable, compact city rides', icon: '🚗', base: 40, perKm: 10 },
+    { type: 'auto', name: 'CabGo Auto', desc: 'Quick 3-wheeler pocket-friendly rides', icon: '🛺', base: 25, perKm: 8 },
+    { type: 'bike', name: 'Bike Express', desc: 'Beat the traffic solo on 2 wheels', icon: '🛵', base: 15, perKm: 5 }
+  ];
+
+  async function performSearch() {
+    const pickup = document.getElementById('pickup-input').value.trim();
+    const dest   = document.getElementById('destination-input').value.trim();
+
+    if (!pickup || !dest) {
+      UI.warning('Please enter both pickup and destination');
+      return;
+    }
+
+    const btn = document.getElementById('search-btn');
+    UI.setLoading(btn, true, 'Searching...');
+
+    // Call search API
+    const res = await API.post('/api/rides/search', {
+      pickup_location: pickup,
+      destination: dest,
+      vehicle_type: 'sedan'
+    });
+
+    UI.setLoading(btn, false, '🔍 Search Cabs');
+
+    const estKm = res.data?.estimated_km || 9.2;
+    document.getElementById('route-meta').textContent = `Distance: ~${estKm} km • ETA: ~${Math.round(estKm * 2.5)} mins`;
+
+    const container = document.getElementById('fare-cards-list');
+    container.innerHTML = categories.map(cat => {
+      const fare = Math.round(cat.base + (estKm * cat.perKm));
+      return `
+        <div class="fare-card-item">
+          <div class="cab-specs">
+            <div class="cab-icon-badge">${cat.icon}</div>
+            <div>
+              <h4 style="font-size: 1.1rem; margin-bottom: 2px;">${cat.name}</h4>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">${cat.desc}</p>
+              <span class="badge badge-green" style="font-size: 0.75rem;">Fastest Pickup</span>
+            </div>
+          </div>
+          <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2);">
+            <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent);">${UI.rupee(fare)}</div>
+            <button class="btn btn-primary btn-sm" onclick="proceedToBook('${cat.type}', '${encodeURIComponent(pickup)}', '${encodeURIComponent(dest)}')">
+              Book Now →
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('results-wrapper').style.display = 'block';
+  }
+
+  function proceedToBook(type, pickup, dest) {
+    const user = Auth.getUser();
+    if (!user) {
+      // Prompt login
+      UI.info('Please sign in or create an account to complete booking.');
+      setTimeout(() => {
+        window.location.href = `/login.html?redirect=${encodeURIComponent('/passenger/book-ride.html')}`;
+      }, 1000);
+    } else {
+      window.location.href = `/passenger/book-ride.html`;
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Active Trip — CabGo Driver</title>
+  <meta name="description" content="Manage and execute active rides, navigate to passenger pickup or destination, and record trip completion." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .trip-control-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      position: relative;
+      overflow: hidden;
+    }
+    .trip-hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+    .hud-box {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      text-align: center;
+    }
+    .hud-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .hud-val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: var(--space-1); }
+    .nav-tracker {
+      height: 220px;
+      border-radius: var(--radius-xl);
+      background: radial-gradient(circle at 50% 50%, #0f172a, #020617);
+      border: 1px solid rgba(59,130,246,0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: var(--space-6);
+      overflow: hidden;
+    }
+    .road-grid {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div id="no-trip-state" style="display:none">
+        <div class="card text-center p-8">
+          <div style="font-size:3.5rem;margin-bottom:var(--space-3)">🚖</div>
+          <h3>No Active Trip Assigned</h3>
+          <p style="color:var(--text-muted);margin-bottom:var(--space-5)">
+            You are currently available or waiting for passenger requests.
+          </p>
+          <a href="/driver/ride-requests.html" class="btn btn-primary">Check Ride Requests →</a>
+        </div>
+      </div>
+
+      <div id="active-trip-state" style="display:none">
+        <div class="trip-control-card mb-6">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <span class="badge badge-amber" id="trip-status-badge">Trip Assigned</span>
+              <h2 style="font-size:1.6rem;margin-top:var(--space-2)" id="trip-header-title">En Route to Pickup</h2>
+            </div>
+            <div style="text-align:right">
+              <span style="font-size:0.8rem;color:var(--text-muted)">Estimated Fare</span>
+              <div style="font-size:1.8rem;font-weight:800;color:var(--accent)" id="trip-fare-val">₹0</div>
+            </div>
+          </div>
+
+          <div class="trip-hud">
+            <div class="hud-box">
+              <div class="hud-label">Passenger</div>
+              <div class="hud-val" id="hud-passenger">—</div>
+            </div>
+            <div class="hud-box">
+              <div class="hud-label">Contact</div>
+              <div class="hud-val" id="hud-contact" style="font-size:1.2rem">—</div>
+            </div>
+            <div class="hud-box">
+              <div class="hud-label">Cab Category</div>
+              <div class="hud-val" id="hud-type" style="text-transform:uppercase">—</div>
+            </div>
+          </div>
+
+          <!-- Navigation Simulation Area -->
+          <div class="nav-tracker">
+            <div class="road-grid"></div>
+            <div style="font-size:2.5rem;z-index:2;animation:float 3s ease-in-out infinite">🚖</div>
+            <div style="z-index:2;text-align:center;margin-top:var(--space-2)">
+              <strong style="color:var(--text-primary);font-size:1rem" id="nav-step-text">Drive towards Pickup</strong>
+              <div style="font-size:0.8rem;color:var(--text-muted)" id="nav-route-text">Loading locations...</div>
+            </div>
+          </div>
+
+          <!-- Action Buttons Form -->
+          <div class="card" style="background:var(--bg-card)">
+            <h4 style="margin-bottom:var(--space-4)">Trip Controls</h4>
+
+            <div id="assigned-actions" class="flex gap-3">
+              <button class="btn btn-primary flex-1" id="start-trip-btn" onclick="startCurrentTrip()">
+                🚀 Passenger Boarded — Start Trip
+              </button>
+            </div>
+
+            <div id="started-actions" style="display:none">
+              <div class="form-group mb-4">
+                <label class="form-label">Recorded Distance (km)</label>
+                <input type="number" id="final-km-input" class="form-control" placeholder="Enter distance traveled (e.g. 10.5)" step="0.1" value="8.5" />
+              </div>
+
+              <div class="form-group mb-4">
+                <label class="form-label">Collection Method</label>
+                <select id="payment-method-select" class="form-control">
+                  <option value="cash">💵 Cash Received</option>
+                  <option value="upi">📱 UPI / QR Scan</option>
+                  <option value="card">💳 Card Terminal</option>
+                </select>
+              </div>
+
+              <button class="btn btn-success w-full" id="complete-trip-btn" onclick="completeCurrentTrip()">
+                🏁 Complete Trip & Collect Fare
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('driver');
+  buildSidebar('driver', 'Active Trip');
+  UI.populateSidebarUser();
+
+  let activeTrip = null;
+
+  async function loadActiveTrip() {
+    const res = await API.get('/api/driver/active-trip');
+    if (!res.success || !res.data) {
+      document.getElementById('no-trip-state').style.display = 'block';
+      document.getElementById('active-trip-state').style.display = 'none';
+      return;
+    }
+
+    activeTrip = res.data;
+    document.getElementById('no-trip-state').style.display = 'none';
+    document.getElementById('active-trip-state').style.display = 'block';
+
+    document.getElementById('hud-passenger').textContent = activeTrip.passenger_name || 'Passenger';
+    document.getElementById('hud-contact').textContent = activeTrip.passenger_mobile || '—';
+    document.getElementById('hud-type').textContent = activeTrip.vehicle_type || 'Cab';
+    document.getElementById('trip-fare-val').textContent = UI.rupee(activeTrip.estimated_fare);
+
+    if (activeTrip.trip_status === 'assigned') {
+      document.getElementById('trip-status-badge').className = 'badge badge-amber';
+      document.getElementById('trip-status-badge').textContent = 'Assigned (Pickup)';
+      document.getElementById('trip-header-title').textContent = 'En Route to Pickup';
+      document.getElementById('nav-step-text').textContent = 'Drive to Passenger Pickup';
+      document.getElementById('nav-route-text').textContent = activeTrip.pickup_location;
+      document.getElementById('assigned-actions').style.display = 'flex';
+      document.getElementById('started-actions').style.display = 'none';
+    } else if (activeTrip.trip_status === 'started') {
+      document.getElementById('trip-status-badge').className = 'badge badge-green';
+      document.getElementById('trip-status-badge').textContent = 'In Progress';
+      document.getElementById('trip-header-title').textContent = 'Driving to Destination';
+      document.getElementById('nav-step-text').textContent = 'En Route to Drop Location';
+      document.getElementById('nav-route-text').textContent = activeTrip.destination;
+      document.getElementById('assigned-actions').style.display = 'none';
+      document.getElementById('started-actions').style.display = 'block';
+    }
+  }
+
+  async function startCurrentTrip() {
+    if (!activeTrip) return;
+    const btn = document.getElementById('start-trip-btn');
+    UI.setLoading(btn, true, 'Starting...');
+
+    const res = await API.put(`/api/driver/trips/${activeTrip.trip_id}/start`, {});
+    UI.setLoading(btn, false, '🚀 Passenger Boarded — Start Trip');
+
+    if (res.success) {
+      UI.success('Trip started! Drive safely to destination.');
+      loadActiveTrip();
+    } else {
+      UI.error(res.message || 'Could not start trip');
+    }
+  }
+
+  async function completeCurrentTrip() {
+    if (!activeTrip) return;
+    const km = parseFloat(document.getElementById('final-km-input').value) || 8.5;
+    const paymentMethod = document.getElementById('payment-method-select').value;
+    const btn = document.getElementById('complete-trip-btn');
+
+    UI.setLoading(btn, true, 'Finalizing...');
+
+    const res = await API.put(`/api/driver/trips/${activeTrip.trip_id}/complete`, {
+      distance_km: km,
+      payment_method: paymentMethod
+    });
+
+    UI.setLoading(btn, false, '🏁 Complete Trip & Collect Fare');
+
+    if (res.success) {
+      UI.success(`Trip completed successfully! Collected fare.`);
+      setTimeout(() => {
+        window.location.href = '/driver/earnings.html';
+      }, 1500);
+    } else {
+      UI.error(res.message || 'Failed to complete trip');
+    }
+  }
+
+  loadActiveTrip();
+</script>
+</body>
+</html>

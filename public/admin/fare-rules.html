@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fare Rules & Pricing — CabGo Admin</title>
+  <meta name="description" content="Configure pricing rules, base fares, distance tariffs, per-minute charges, and surge multipliers per vehicle category." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Dynamic Fare Rules & Tariffs</h3>
+            <p class="card-subtitle">Configure base fares, per-km rates, cancellation fees, and surge factors</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadFareRules()">🔄 Refresh Rules</button>
+        </div>
+
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Vehicle Type</th>
+                <th>Base Fare</th>
+                <th>Rate / Km</th>
+                <th>Rate / Min</th>
+                <th>Cancellation Fee</th>
+                <th>Surge Multiplier</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="fare-rules-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:var(--space-6)">Loading fare rules...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Edit Fare Rule Modal -->
+<div id="edit-fare-modal" class="modal-overlay" style="display:none">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">Edit Fare Rule: <span id="modal-type-title" style="text-transform:capitalize"></span></h3>
+      <button class="modal-close" onclick="UI.closeModal('edit-fare-modal')">×</button>
+    </div>
+    <form id="edit-fare-form" onsubmit="event.preventDefault(); saveFareRule();">
+      <div class="modal-body">
+        <input type="hidden" id="edit-fare-id" />
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-3)">
+          <div class="form-group">
+            <label class="form-label">Base Fare (₹)</label>
+            <input type="number" id="edit-base-fare" class="form-control" step="0.5" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Per Km Rate (₹)</label>
+            <input type="number" id="edit-km-rate" class="form-control" step="0.5" required />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-3)">
+          <div class="form-group">
+            <label class="form-label">Per Minute Rate (₹)</label>
+            <input type="number" id="edit-min-rate" class="form-control" step="0.1" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cancellation Fee (₹)</label>
+            <input type="number" id="edit-cancel-fee" class="form-control" step="1" required />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+          <div class="form-group">
+            <label class="form-label">Surge Multiplier</label>
+            <input type="number" id="edit-surge" class="form-control" step="0.1" min="1.0" max="5.0" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rule Status</label>
+            <select id="edit-status" class="form-control">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="UI.closeModal('edit-fare-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="save-fare-btn">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('admin', 'superadmin');
+  const role = Auth.getUser()?.role || 'admin';
+  buildSidebar(role, 'Fare Rules');
+  UI.populateSidebarUser();
+
+  let fareRulesList = [];
+
+  async function loadFareRules() {
+    const res = await API.get('/api/admin/fare-rules');
+    if (!res.success) {
+      UI.error(res.message || 'Failed to load fare rules');
+      return;
+    }
+    fareRulesList = res.data || [];
+    renderFareTable();
+  }
+
+  function renderFareTable() {
+    const tbody = document.getElementById('fare-rules-tbody');
+    const icons = { sedan: '🚘', suv: '🚙', hatchback: '🚗', auto: '🛺', bike: '🛵' };
+
+    tbody.innerHTML = fareRulesList.map(r => `
+      <tr>
+        <td>
+          <div class="flex items-center gap-2">
+            <span style="font-size:1.4rem">${icons[r.vehicle_type] || '🚗'}</span>
+            <strong style="text-transform:capitalize;font-size:0.95rem">${r.vehicle_type}</strong>
+          </div>
+        </td>
+        <td><strong>${UI.rupee(r.base_fare)}</strong></td>
+        <td>${UI.rupee(r.per_km_rate)} / km</td>
+        <td>${UI.rupee(r.per_minute_rate)} / min</td>
+        <td>${UI.rupee(r.cancellation_fee)}</td>
+        <td><span class="badge ${parseFloat(r.surge_multiplier) > 1 ? 'badge-amber' : 'badge-blue'}">${r.surge_multiplier}x</span></td>
+        <td>${UI.badge(r.status)}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.fare_id})">
+            ✏️ Edit
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openEditModal(fareId) {
+    const rule = fareRulesList.find(r => r.fare_id === fareId);
+    if (!rule) return;
+
+    document.getElementById('edit-fare-id').value = rule.fare_id;
+    document.getElementById('modal-type-title').textContent = rule.vehicle_type;
+    document.getElementById('edit-base-fare').value = rule.base_fare;
+    document.getElementById('edit-km-rate').value = rule.per_km_rate;
+    document.getElementById('edit-min-rate').value = rule.per_minute_rate;
+    document.getElementById('edit-cancel-fee').value = rule.cancellation_fee;
+    document.getElementById('edit-surge').value = rule.surge_multiplier;
+    document.getElementById('edit-status').value = rule.status;
+
+    UI.openModal('edit-fare-modal');
+  }
+
+  async function saveFareRule() {
+    const id = document.getElementById('edit-fare-id').value;
+    const btn = document.getElementById('save-fare-btn');
+
+    UI.setLoading(btn, true, 'Saving...');
+
+    const res = await API.put(`/api/admin/fare-rules/${id}`, {
+      base_fare: parseFloat(document.getElementById('edit-base-fare').value),
+      per_km_rate: parseFloat(document.getElementById('edit-km-rate').value),
+      per_minute_rate: parseFloat(document.getElementById('edit-min-rate').value),
+      cancellation_fee: parseFloat(document.getElementById('edit-cancel-fee').value),
+      surge_multiplier: parseFloat(document.getElementById('edit-surge').value),
+      status: document.getElementById('edit-status').value
+    });
+
+    UI.setLoading(btn, false, 'Save Changes');
+
+    if (res.success) {
+      UI.success('Fare rule updated successfully!');
+      UI.closeModal('edit-fare-modal');
+      loadFareRules();
+    } else {
+      UI.error(res.message || 'Failed to update fare rule');
+    }
+  }
+
+  loadFareRules();
+</script>
+</body>
+</html>

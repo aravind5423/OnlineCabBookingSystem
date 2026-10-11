@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Active Trip — CabGo</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .trip-status-bar {
+      background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(167,139,250,0.08));
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      margin-bottom: var(--space-6);
+    }
+    .pulse-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      background: var(--success);
+      border-radius: 50%;
+      position: relative;
+      margin-right: 8px;
+    }
+    .pulse-dot::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: rgba(34,197,94,0.3);
+      animation: pulse-ring 1.5s ease-out infinite;
+    }
+    .cancel-zone { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <div><h1>🚦 Active Trip</h1><p>Track your current ride in real-time</p></div>
+      </div>
+
+      <div id="trip-content">
+        <div class="empty-state">
+          <div class="spinner spinner-lg"></div>
+          <p style="margin-top:var(--space-4)">Loading trip status...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('passenger');
+  buildSidebar('passenger','Active Trip');
+  UI.populateSidebarUser();
+
+  let pollInterval;
+
+  async function loadActiveTrip() {
+    const res = await API.get('/api/rides/active');
+    const t = res.data;
+
+    if (!t) {
+      document.getElementById('trip-content').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6)">
+          <div class="card" style="grid-column:1/-1">
+            ${UI.empty('🚖', 'No Active Trip', 'You have no ongoing ride. Head to the dashboard to book one!')}
+            <div style="text-align:center;margin-top:var(--space-4)">
+              <a href="/passenger/dashboard.html" class="btn btn-primary">Book a Ride →</a>
+            </div>
+          </div>
+        </div>`;
+      clearInterval(pollInterval);
+      return;
+    }
+
+    const statusSteps = [
+      { key:'pending',   label:'Searching for Driver', done: true },
+      { key:'accepted',  label:'Driver Assigned',      done: ['accepted','started','completed'].includes(t.request_status) },
+      { key:'started',   label:'Trip Started',         done: ['started','completed'].includes(t.trip_status) },
+      { key:'completed', label:'Trip Completed',       done: t.trip_status === 'completed' },
+    ];
+
+    document.getElementById('trip-content').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6)">
+        <!-- Status card -->
+        <div class="trip-status-bar">
+          <div style="display:flex;align-items:center;margin-bottom:var(--space-5)">
+            <span class="pulse-dot"></span>
+            <h2 style="font-size:1.4rem">${
+              t.trip_status === 'started' ? 'Trip In Progress' :
+              t.trip_status === 'assigned' ? 'Driver On the Way' :
+              t.request_status === 'pending' ? 'Searching for Driver...' : 'Ride Status'}</h2>
+          </div>
+
+          <div class="timeline">
+            ${statusSteps.map(s => `
+              <div class="timeline-item">
+                <div class="timeline-dot ${s.done ? 'done' : ''}">
+                  <div class="dot-inner"></div>
+                </div>
+                <div class="timeline-content">
+                  <h5>${s.label}</h5>
+                </div>
+              </div>`).join('')}
+          </div>
+
+          <div style="margin-top:var(--space-6)">
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">From</p>
+            <strong>${t.pickup_location}</strong>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin:var(--space-3) 0 4px">To</p>
+            <strong>${t.destination}</strong>
+          </div>
+
+          <div class="cancel-zone">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:0.875rem;color:var(--text-muted)">Estimated Fare</span>
+              <span class="fare-amount" style="font-size:1.5rem">${UI.rupee(t.estimated_fare)}</span>
+            </div>
+            ${(t.request_status === 'pending' || t.request_status === 'accepted') ? `
+              <button class="btn btn-danger w-full" style="margin-top:var(--space-3)" onclick="cancelRide(${t.request_id})">
+                ✕ Cancel Ride
+              </button>` : ''}
+          </div>
+        </div>
+
+        <!-- Driver Card -->
+        <div class="card">
+          <h3 style="margin-bottom:var(--space-5)">👨‍✈️ Your Driver</h3>
+          ${t.driver_name ? `
+            <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+              <div class="driver-card" style="display:flex;align-items:center;gap:var(--space-4)">
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:#fff">${t.driver_name[0]}</div>
+                <div>
+                  <h4>${t.driver_name}</h4>
+                  <p>${UI.stars(t.driver_rating||5)} ${t.driver_rating||'5.0'}</p>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+                <div style="display:flex;justify-content:space-between;padding:var(--space-3);background:var(--glass);border-radius:var(--radius)">
+                  <span style="color:var(--text-muted);font-size:0.875rem">📞 Phone</span>
+                  <strong>${t.driver_mobile}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:var(--space-3);background:var(--glass);border-radius:var(--radius)">
+                  <span style="color:var(--text-muted);font-size:0.875rem">🚗 Vehicle</span>
+                  <strong>${t.vehicle_number} · ${t.model}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:var(--space-3);background:var(--glass);border-radius:var(--radius)">
+                  <span style="color:var(--text-muted);font-size:0.875rem">🎨 Color</span>
+                  <strong>${t.color||'—'}</strong>
+                </div>
+              </div>
+            </div>` : `
+            <div class="empty-state" style="padding:var(--space-8)">
+              <div style="font-size:2.5rem;animation:spin 2s linear infinite">⏳</div>
+              <p style="margin-top:var(--space-4);color:var(--text-muted)">Matching you with a nearby driver...</p>
+            </div>`}
+        </div>
+      </div>`;
+  }
+
+  async function cancelRide(requestId) {
+    if (!UI.confirm('Are you sure you want to cancel this ride?')) return;
+    const res = await API.put(`/api/rides/${requestId}/cancel`, { cancel_reason: 'Cancelled by passenger' });
+    if (res.success) { UI.success('Ride cancelled'); setTimeout(loadActiveTrip, 500); }
+    else UI.error(res.message);
+  }
+
+  loadActiveTrip();
+  // Poll every 5s for status updates
+  pollInterval = setInterval(loadActiveTrip, 5000);
+  window.addEventListener('beforeunload', () => clearInterval(pollInterval));
+</script>
+</body>
+</html>

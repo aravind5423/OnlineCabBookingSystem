@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Driver Profile — CabGo</title>
+  <meta name="description" content="View and manage your driver profile, license credentials, and professional ratings on CabGo." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:var(--space-6)">
+
+        <!-- Left Summary Card -->
+        <div class="card text-center">
+          <div class="avatar" style="width:84px;height:84px;font-size:2rem;margin:0 auto var(--space-4) auto;" id="driver-avatar">D</div>
+          <h3 id="profile-name" style="margin-bottom:var(--space-1)">Loading...</h3>
+          <p id="profile-email" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:var(--space-3)">—</p>
+          <div id="verification-badge-container" class="mb-4">
+            <span class="badge badge-amber">Pending Verification</span>
+          </div>
+
+          <div style="border-top:1px solid var(--border);padding-top:var(--space-4);text-align:left">
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Rating</span>
+              <span id="profile-rating" style="font-weight:700;color:var(--accent)">⭐ 5.00</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Total Trips</span>
+              <strong id="profile-trips">0</strong>
+            </div>
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Status</span>
+              <span id="profile-status" class="badge badge-green">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Form Card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Driver Credentials & Details</h3>
+              <p class="card-subtitle">Keep your contact and driver's license details up to date</p>
+            </div>
+          </div>
+
+          <form id="driver-profile-form" onsubmit="event.preventDefault(); saveProfile();">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-4)">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="name-input" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mobile Number</label>
+                <input type="tel" id="mobile-input" class="form-control" required />
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-4)">
+              <div class="form-group">
+                <label class="form-label">Driving License Number</label>
+                <input type="text" id="license-input" class="form-control" placeholder="e.g. DL-0420110012345" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">License Expiry Date</label>
+                <input type="date" id="expiry-input" class="form-control" required />
+              </div>
+            </div>
+
+            <div class="form-group mb-5">
+              <label class="form-label">Experience (Years)</label>
+              <input type="number" id="exp-input" class="form-control" min="0" max="50" placeholder="e.g. 5" required />
+            </div>
+
+            <button type="submit" id="save-btn" class="btn btn-primary">
+              💾 Save Profile Changes
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('driver');
+  buildSidebar('driver', 'My Profile');
+  UI.populateSidebarUser();
+
+  async function loadProfile() {
+    const res = await API.get('/api/driver/profile');
+    if (!res.success) {
+      UI.error(res.message || 'Failed to load profile');
+      return;
+    }
+
+    const d = res.data;
+    document.getElementById('profile-name').textContent = d.name;
+    document.getElementById('profile-email').textContent = d.email;
+    document.getElementById('driver-avatar').textContent = (d.name || 'D')[0].toUpperCase();
+    document.getElementById('profile-rating').textContent = `⭐ ${parseFloat(d.rating || 5).toFixed(2)}`;
+    document.getElementById('profile-trips').textContent = d.total_trips || 0;
+
+    const vBadge = document.getElementById('verification-badge-container');
+    if (d.verification_status === 'approved') {
+      vBadge.innerHTML = `<span class="badge badge-green">✓ Verified Driver</span>`;
+    } else if (d.verification_status === 'rejected') {
+      vBadge.innerHTML = `<span class="badge badge-red">✕ Verification Rejected</span>`;
+    } else {
+      vBadge.innerHTML = `<span class="badge badge-amber">⏳ Pending Verification</span>`;
+    }
+
+    document.getElementById('name-input').value = d.name || '';
+    document.getElementById('mobile-input').value = d.mobile || '';
+    document.getElementById('license-input').value = d.license_no || '';
+    if (d.license_expiry) {
+      document.getElementById('expiry-input').value = d.license_expiry.split('T')[0];
+    }
+    document.getElementById('exp-input').value = d.experience_years || 0;
+  }
+
+  async function saveProfile() {
+    const btn = document.getElementById('save-btn');
+    UI.setLoading(btn, true, 'Saving...');
+
+    const res = await API.put('/api/driver/profile', {
+      name: document.getElementById('name-input').value.trim(),
+      mobile: document.getElementById('mobile-input').value.trim(),
+      license_no: document.getElementById('license-input').value.trim(),
+      license_expiry: document.getElementById('expiry-input').value,
+      experience_years: parseInt(document.getElementById('exp-input').value) || 0
+    });
+
+    UI.setLoading(btn, false, '💾 Save Profile Changes');
+
+    if (res.success) {
+      UI.success('Profile updated successfully!');
+      loadProfile();
+    } else {
+      UI.error(res.message || 'Failed to update profile');
+    }
+  }
+
+  loadProfile();
+</script>
+</body>
+</html>

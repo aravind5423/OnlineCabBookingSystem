@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Vehicles — CabGo Driver</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <div><h1>🚗 My Vehicles</h1><p>Manage your registered vehicles</p></div>
+        <button class="btn btn-primary" onclick="UI.openModal('add-vehicle-modal')">+ Add Vehicle</button>
+      </div>
+
+      <div id="vehicles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--space-5)">
+        <div class="card skeleton" style="height:200px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Vehicle Modal -->
+<div class="modal-overlay hidden" id="add-vehicle-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">🚗 Add Vehicle</h3>
+      <button class="modal-close" onclick="UI.closeModal('add-vehicle-modal')">✕</button>
+    </div>
+    <form id="add-vehicle-form" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Vehicle Number *</label>
+          <input type="text" id="v-number" class="form-control" placeholder="KA01AB1234" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vehicle Type *</label>
+          <select id="v-type" class="form-control" required>
+            <option value="bike">Bike</option>
+            <option value="auto">Auto</option>
+            <option value="hatchback">Hatchback</option>
+            <option value="sedan" selected>Sedan</option>
+            <option value="suv">SUV</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model *</label>
+        <input type="text" id="v-model" class="form-control" placeholder="e.g. Maruti Swift" required />
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <input type="text" id="v-color" class="form-control" placeholder="White" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Year</label>
+          <input type="number" id="v-year" class="form-control" placeholder="2022" min="2000" max="2025" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Passenger Capacity</label>
+        <input type="number" id="v-capacity" class="form-control" value="4" min="1" max="12" />
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="UI.closeModal('add-vehicle-modal')">Cancel</button>
+      <button class="btn btn-primary" id="save-vehicle-btn" onclick="saveVehicle()">Save Vehicle</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay hidden" id="edit-vehicle-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">✏️ Edit Vehicle</h3>
+      <button class="modal-close" onclick="UI.closeModal('edit-vehicle-modal')">✕</button>
+    </div>
+    <form style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <input type="hidden" id="edit-v-id" />
+      <div class="form-group">
+        <label class="form-label">Model</label>
+        <input type="text" id="edit-v-model" class="form-control" />
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Color</label>
+          <input type="text" id="edit-v-color" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Capacity</label>
+          <input type="number" id="edit-v-capacity" class="form-control" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="edit-v-status" class="form-control">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="maintenance">Maintenance</option>
+        </select>
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="UI.closeModal('edit-vehicle-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateVehicle()">Update</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('driver');
+  buildSidebar('driver','My Vehicles');
+  UI.populateSidebarUser();
+
+  const typeIcons = { bike:'🏍️', auto:'🛺', hatchback:'🚙', sedan:'🚗', suv:'🚐' };
+
+  async function loadVehicles() {
+    const res = await API.get('/api/driver/vehicles');
+    const vehicles = res.data || [];
+    if (!vehicles.length) {
+      document.getElementById('vehicles-grid').innerHTML = `
+        ${UI.empty('🚗','No vehicles yet','Add your first vehicle to start accepting rides.')}
+        <div style="text-align:center;margin-top:var(--space-4)">
+          <button class="btn btn-primary" onclick="UI.openModal('add-vehicle-modal')">+ Add Vehicle</button>
+        </div>`;
+      return;
+    }
+    document.getElementById('vehicles-grid').innerHTML = vehicles.map(v => `
+      <div class="card animate-fade-up">
+        <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)">
+          <div style="font-size:2.5rem">${typeIcons[v.vehicle_type]||'🚗'}</div>
+          <div>
+            <h3>${v.model}</h3>
+            <p style="color:var(--text-muted);font-size:0.875rem">${v.vehicle_type}</p>
+          </div>
+          ${UI.badge(v.status)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
+          <div style="background:var(--glass);border-radius:var(--radius);padding:var(--space-3)">
+            <p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px">Reg. Number</p>
+            <strong style="font-size:0.875rem">${v.vehicle_number}</strong>
+          </div>
+          <div style="background:var(--glass);border-radius:var(--radius);padding:var(--space-3)">
+            <p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px">Color</p>
+            <strong style="font-size:0.875rem">${v.color||'—'}</strong>
+          </div>
+          <div style="background:var(--glass);border-radius:var(--radius);padding:var(--space-3)">
+            <p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px">Capacity</p>
+            <strong style="font-size:0.875rem">${v.capacity} seats</strong>
+          </div>
+          <div style="background:var(--glass);border-radius:var(--radius);padding:var(--space-3)">
+            <p style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px">Year</p>
+            <strong style="font-size:0.875rem">${v.year||'—'}</strong>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick='openEdit(${JSON.stringify(v).replace(/"/g,"&quot;")})'>✏️ Edit</button>
+      </div>`).join('');
+  }
+
+  async function saveVehicle() {
+    const btn = document.getElementById('save-vehicle-btn');
+    UI.setLoading(btn, true, 'Saving...');
+    const res = await API.post('/api/driver/vehicles', {
+      vehicle_number: document.getElementById('v-number').value.trim().toUpperCase(),
+      vehicle_type:   document.getElementById('v-type').value,
+      model:          document.getElementById('v-model').value.trim(),
+      color:          document.getElementById('v-color').value.trim(),
+      year:           document.getElementById('v-year').value || null,
+      capacity:       document.getElementById('v-capacity').value || 4
+    });
+    UI.setLoading(btn, false, 'Save Vehicle');
+    if (res.success) {
+      UI.success('Vehicle added!');
+      UI.closeModal('add-vehicle-modal');
+      document.getElementById('add-vehicle-form').reset();
+      loadVehicles();
+    } else UI.error(res.message);
+  }
+
+  function openEdit(v) {
+    document.getElementById('edit-v-id').value       = v.vehicle_id;
+    document.getElementById('edit-v-model').value    = v.model;
+    document.getElementById('edit-v-color').value    = v.color || '';
+    document.getElementById('edit-v-capacity').value = v.capacity;
+    document.getElementById('edit-v-status').value   = v.status;
+    UI.openModal('edit-vehicle-modal');
+  }
+
+  async function updateVehicle() {
+    const id = document.getElementById('edit-v-id').value;
+    const res = await API.put(`/api/driver/vehicles/${id}`, {
+      model:    document.getElementById('edit-v-model').value,
+      color:    document.getElementById('edit-v-color').value,
+      capacity: document.getElementById('edit-v-capacity').value,
+      status:   document.getElementById('edit-v-status').value
+    });
+    if (res.success) { UI.success('Vehicle updated!'); UI.closeModal('edit-vehicle-modal'); loadVehicles(); }
+    else UI.error(res.message);
+  }
+
+  loadVehicles();
+</script>
+</body>
+</html>

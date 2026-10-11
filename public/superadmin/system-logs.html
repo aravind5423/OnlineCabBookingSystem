@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Audit Logs — CabGo Super Admin</title>
+  <meta name="description" content="Immutable security audit trail: trace administrative actions, ride events, authentication attempts, and system modifications." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div class="card mb-6">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Security & Operational Audit Trail</h3>
+            <p class="card-subtitle">Comprehensive event logging with actor attribution and IP tracking</p>
+          </div>
+          <form id="log-filter-form" onsubmit="event.preventDefault(); loadLogs(1);" class="flex gap-3 items-center">
+            <input type="text" id="action-filter" class="form-control" placeholder="Search action (e.g. LOGIN)" style="width:180px" />
+            <input type="date" id="from-date" class="form-control" />
+            <input type="date" id="to-date" class="form-control" />
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="resetFilters()">Reset</button>
+          </form>
+        </div>
+
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Log ID</th>
+                <th>Action</th>
+                <th>Actor Details</th>
+                <th>Description</th>
+                <th>IP Address</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:var(--space-6)">Loading audit entries...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4" id="pagination-controls" style="display:none">
+          <span style="font-size:0.85rem;color:var(--text-muted)" id="page-info">Page 1</span>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary btn-sm" id="prev-btn" onclick="changePage(-1)">← Prev</button>
+            <button class="btn btn-secondary btn-sm" id="next-btn" onclick="changePage(1)">Next →</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('superadmin');
+  buildSidebar('superadmin', 'System Logs');
+  UI.populateSidebarUser();
+
+  let currentPage = 1;
+
+  async function loadLogs(page = 1) {
+    currentPage = page;
+    const action = document.getElementById('action-filter').value.trim();
+    const from = document.getElementById('from-date').value;
+    const to = document.getElementById('to-date').value;
+
+    let url = `/api/superadmin/logs?page=${page}&limit=25`;
+    if (action) url += `&action=${encodeURIComponent(action)}`;
+    if (from)   url += `&from=${from}`;
+    if (to)     url += `&to=${to}`;
+
+    const res = await API.get(url);
+    if (!res.success) {
+      UI.error(res.message || 'Failed to fetch logs');
+      return;
+    }
+
+    const { logs, page: p, limit } = res.data;
+    const tbody = document.getElementById('logs-tbody');
+
+    if (!logs || !logs.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--space-6);color:var(--text-muted)">No audit logs matching query.</td></tr>`;
+      document.getElementById('pagination-controls').style.display = 'none';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(l => {
+      let badgeClass = 'badge-blue';
+      if (l.action.includes('DELETE') || l.action.includes('REJECT') || l.action.includes('BLOCK')) badgeClass = 'badge-red';
+      else if (l.action.includes('CREATE') || l.action.includes('ACCEPT') || l.action.includes('COMPLETE')) badgeClass = 'badge-green';
+      else if (l.action.includes('UPDATE')) badgeClass = 'badge-amber';
+
+      return `
+        <tr>
+          <td><code style="font-size:0.75rem;color:var(--text-muted)">#${l.log_id}</code></td>
+          <td><span class="badge ${badgeClass}" style="font-size:0.75rem">${l.action}</span></td>
+          <td>
+            <strong>${l.user_name || 'System / Guest'}</strong>
+            <div style="font-size:0.75rem;color:var(--text-muted)">${l.user_role ? `[${l.user_role}]` : ''} ${l.user_email || ''}</div>
+          </td>
+          <td style="max-width:320px;word-break:break-word;font-size:0.85rem">${l.description || '—'}</td>
+          <td><code style="font-size:0.75rem">${l.ip_address || '::1'}</code></td>
+          <td style="white-space:nowrap;font-size:0.8rem;color:var(--text-muted)">${UI.formatDate(l.created_at)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    document.getElementById('pagination-controls').style.display = 'flex';
+    document.getElementById('page-info').textContent = `Page ${p}`;
+    document.getElementById('prev-btn').disabled = (p <= 1);
+    document.getElementById('next-btn').disabled = (logs.length < limit);
+  }
+
+  function changePage(delta) {
+    loadLogs(currentPage + delta);
+  }
+
+  function resetFilters() {
+    document.getElementById('action-filter').value = '';
+    document.getElementById('from-date').value = '';
+    document.getElementById('to-date').value = '';
+    loadLogs(1);
+  }
+
+  loadLogs(1);
+</script>
+</body>
+</html>

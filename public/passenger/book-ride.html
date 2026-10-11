@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book a Ride — CabGo</title>
+  <meta name="description" content="Book a cab in seconds with CabGo. Choose your ride, estimate fares, and track your driver in real-time." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .booking-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: var(--space-6);
+    }
+    @media (max-width: 900px) {
+      .booking-grid { grid-template-columns: 1fr; }
+    }
+    .ride-type-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: var(--space-3);
+      margin: var(--space-4) 0;
+    }
+    .ride-type-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-3);
+      background: var(--glass);
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+    .ride-type-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .ride-type-card.selected {
+      border-color: var(--accent);
+      background: rgba(245, 158, 11, 0.12);
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+    }
+    .ride-type-icon { font-size: 2rem; margin-bottom: var(--space-2); }
+    .ride-type-name { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+    .ride-type-eta { font-size: 0.75rem; color: var(--text-muted); }
+    .ride-type-price { font-size: 0.95rem; font-weight: 700; color: var(--accent); margin-top: var(--space-1); }
+
+    .route-visualizer {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      position: relative;
+      overflow: hidden;
+    }
+    .route-node {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      position: relative;
+    }
+    .route-node-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .route-node-icon.pickup { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .route-node-icon.drop { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .route-connector {
+      width: 2px;
+      height: 32px;
+      background: dashed var(--border);
+      margin-left: 13px;
+    }
+    .map-preview-box {
+      height: 200px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at 50% 50%, #1e293b, #0f172a);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: var(--space-4);
+      border: 1px dashed var(--border);
+      position: relative;
+    }
+    .map-pulse {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+    @keyframes ping {
+      75%, 100% { transform: scale(2); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div class="booking-grid">
+        <!-- Booking Form Column -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">🚖 Plan Your Journey</h3>
+              <p class="card-subtitle">Select route and preferred cab category</p>
+            </div>
+            <span class="badge badge-amber">Instant Booking</span>
+          </div>
+
+          <form id="booking-form" onsubmit="event.preventDefault(); handleSearchAndEstimate();">
+            <div class="form-group mb-3">
+              <label class="form-label" for="book-pickup">📍 Pickup Address</label>
+              <input type="text" id="book-pickup" class="form-control" placeholder="e.g. MG Road, Bengaluru" required />
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label" for="book-destination">🏁 Drop Destination</label>
+              <input type="text" id="book-destination" class="form-control" placeholder="e.g. Indiranagar 100 Feet Rd" required />
+            </div>
+
+            <label class="form-label">🚗 Choose Cab Type</label>
+            <div class="ride-type-selector" id="vehicle-type-selector">
+              <div class="ride-type-card selected" data-type="sedan" onclick="selectRideType('sedan')">
+                <div class="ride-type-icon">🚘</div>
+                <div class="ride-type-name">Sedan</div>
+                <div class="ride-type-eta">3-5 mins</div>
+                <div class="ride-type-price" id="price-sedan">₹12/km</div>
+              </div>
+
+              <div class="ride-type-card" data-type="suv" onclick="selectRideType('suv')">
+                <div class="ride-type-icon">🚙</div>
+                <div class="ride-type-name">SUV Prime</div>
+                <div class="ride-type-eta">5-7 mins</div>
+                <div class="ride-type-price" id="price-suv">₹16/km</div>
+              </div>
+
+              <div class="ride-type-card" data-type="hatchback" onclick="selectRideType('hatchback')">
+                <div class="ride-type-icon">🚗</div>
+                <div class="ride-type-name">Mini / Hatch</div>
+                <div class="ride-type-eta">2-4 mins</div>
+                <div class="ride-type-price" id="price-hatchback">₹10/km</div>
+              </div>
+
+              <div class="ride-type-card" data-type="auto" onclick="selectRideType('auto')">
+                <div class="ride-type-icon">🛺</div>
+                <div class="ride-type-name">Auto</div>
+                <div class="ride-type-eta">2-3 mins</div>
+                <div class="ride-type-price" id="price-auto">₹8/km</div>
+              </div>
+
+              <div class="ride-type-card" data-type="bike" onclick="selectRideType('bike')">
+                <div class="ride-type-icon">🛵</div>
+                <div class="ride-type-name">Bike Moto</div>
+                <div class="ride-type-eta">1-2 mins</div>
+                <div class="ride-type-price" id="price-bike">₹5/km</div>
+              </div>
+            </div>
+
+            <div class="flex gap-3 mt-4">
+              <button type="submit" id="estimate-btn" class="btn btn-secondary flex-1">
+                ⚡ Calculate Fare
+              </button>
+              <button type="button" id="confirm-btn" onclick="executeBooking()" class="btn btn-primary flex-1" disabled>
+                ✅ Confirm & Book Ride
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Fare Breakdown & Route Details Column -->
+        <div>
+          <div class="route-visualizer mb-4">
+            <h4 style="margin-bottom:var(--space-4);font-size:1.1rem">🗺️ Trip Route Summary</h4>
+
+            <div class="route-node">
+              <div class="route-node-icon pickup">A</div>
+              <div>
+                <p style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600">Pickup</p>
+                <h5 id="summary-pickup" style="font-size:0.95rem;color:var(--text-primary)">Enter pickup above</h5>
+              </div>
+            </div>
+
+            <div class="route-connector"></div>
+
+            <div class="route-node">
+              <div class="route-node-icon drop">B</div>
+              <div>
+                <p style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;font-weight:600">Destination</p>
+                <h5 id="summary-destination" style="font-size:0.95rem;color:var(--text-primary)">Enter drop above</h5>
+              </div>
+            </div>
+
+            <div class="map-preview-box">
+              <div class="map-pulse"></div>
+              <div style="font-size:2rem;z-index:1">🚖</div>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin-top:var(--space-2);z-index:1" id="route-distance-text">
+                Live GPS Route Matching
+              </p>
+            </div>
+          </div>
+
+          <div class="card" id="fare-card" style="display:none">
+            <div class="card-header">
+              <h4 class="card-title">💵 Fare Breakdown</h4>
+              <span class="badge badge-green" id="fare-tag">Best Rate</span>
+            </div>
+            <div class="fare-card" style="margin-bottom:0">
+              <div class="fare-amount" id="total-fare">₹0</div>
+              <div class="fare-breakdown" id="fare-details">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('passenger');
+  buildSidebar('passenger', 'Book a Ride');
+  UI.populateSidebarUser();
+
+  let selectedType = 'sedan';
+  let currentEstimate = null;
+
+  function selectRideType(type) {
+    selectedType = type;
+    document.querySelectorAll('.ride-type-card').forEach(el => {
+      el.classList.toggle('selected', el.getAttribute('data-type') === type);
+    });
+    const pickup = document.getElementById('book-pickup').value.trim();
+    const drop = document.getElementById('book-destination').value.trim();
+    if (pickup && drop) {
+      handleSearchAndEstimate();
+    }
+  }
+
+  async function handleSearchAndEstimate() {
+    const pickup = document.getElementById('book-pickup').value.trim();
+    const drop = document.getElementById('book-destination').value.trim();
+
+    if (!pickup || !drop) {
+      UI.warning('Please enter both pickup and destination locations.');
+      return;
+    }
+
+    document.getElementById('summary-pickup').textContent = pickup;
+    document.getElementById('summary-destination').textContent = drop;
+
+    const btn = document.getElementById('estimate-btn');
+    UI.setLoading(btn, true, 'Estimating...');
+
+    const res = await API.post('/api/rides/search', {
+      pickup_location: pickup,
+      destination: drop,
+      vehicle_type: selectedType
+    });
+
+    UI.setLoading(btn, false, '⚡ Calculate Fare');
+
+    if (res.success && res.data) {
+      currentEstimate = res.data;
+      const fare = res.data.fare_estimate;
+      const km = res.data.estimated_km || 8.5;
+      const estTotal = fare ? fare.estimated_fare : (50 + km * 12);
+
+      document.getElementById('fare-card').style.display = 'block';
+      document.getElementById('total-fare').textContent = UI.rupee(estTotal);
+      document.getElementById('route-distance-text').textContent = `Distance: ~${km} km • ETA: ~${Math.round(km * 2.5)} mins`;
+
+      document.getElementById('fare-details').innerHTML = `
+        <div class="fare-row"><span>Base Fare</span><span>${UI.rupee(fare?.breakdown?.base_fare || 50)}</span></div>
+        <div class="fare-row"><span>Distance Charge (~${km} km)</span><span>${UI.rupee(fare?.breakdown?.distance_charge || (km * 12))}</span></div>
+        <div class="fare-row"><span>Surge Multiplier</span><span>${fare?.breakdown?.surge_multiplier || '1.0x'}</span></div>
+        <div class="fare-row"><span>Taxes & Platform Fee</span><span>₹0.00</span></div>
+      `;
+
+      document.getElementById('confirm-btn').disabled = false;
+      UI.success('Route estimated successfully!');
+    } else {
+      UI.error(res.message || 'Could not estimate fare for this route');
+    }
+  }
+
+  async function executeBooking() {
+    const pickup = document.getElementById('book-pickup').value.trim();
+    const drop = document.getElementById('book-destination').value.trim();
+
+    if (!pickup || !drop) {
+      UI.warning('Please provide pickup and destination.');
+      return;
+    }
+
+    const btn = document.getElementById('confirm-btn');
+    UI.setLoading(btn, true, 'Booking Cab...');
+
+    const res = await API.post('/api/rides/book', {
+      pickup_location: pickup,
+      destination: drop,
+      vehicle_type: selectedType
+    });
+
+    UI.setLoading(btn, false, '✅ Confirm & Book Ride');
+
+    if (res.success) {
+      UI.success('Cab requested successfully! Finding nearby drivers...');
+      setTimeout(() => {
+        window.location.href = '/passenger/active-trip.html';
+      }, 1200);
+    } else {
+      UI.error(res.message || 'Failed to book cab. Please try again.');
+    }
+  }
+</script>
+</body>
+</html>

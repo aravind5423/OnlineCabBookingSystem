@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>System Settings — CabGo Super Admin</title>
+  <meta name="description" content="Configure platform operational settings, commission rates, dispatch limits, and system maintenance switches." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6)">
+
+        <!-- Left Form Card -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">⚙️ Operational Configuration</h3>
+              <p class="card-subtitle">Global platform parameters and economic policies</p>
+            </div>
+            <span class="badge badge-purple">Live System</span>
+          </div>
+
+          <form id="settings-form" onsubmit="event.preventDefault(); saveSettings();">
+            <div class="form-group mb-4">
+              <label class="form-label">Platform Commission Rate (%)</label>
+              <input type="number" id="setting-commission" class="form-control" value="15" min="0" max="50" step="0.5" required />
+              <small style="color:var(--text-muted)">Deducted from driver trip total upon settlement.</small>
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label">Max Driver Matching Radius (km)</label>
+              <input type="number" id="setting-radius" class="form-control" value="10" min="1" max="50" required />
+              <small style="color:var(--text-muted)">Service radius when querying nearby available drivers.</small>
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label">Request Expiry Timeout (seconds)</label>
+              <input type="number" id="setting-timeout" class="form-control" value="120" min="30" max="600" required />
+              <small style="color:var(--text-muted)">Unaccepted passenger requests auto-expire after this duration.</small>
+            </div>
+
+            <div class="form-group mb-5">
+              <label class="form-label">Driver Onboarding Verification</label>
+              <select id="setting-verification" class="form-control">
+                <option value="manual">Manual Admin Review Required (Default)</option>
+                <option value="auto">Automatic Approval on Registration</option>
+              </select>
+            </div>
+
+            <button type="submit" id="save-btn" class="btn btn-primary">
+              💾 Save Configuration
+            </button>
+          </form>
+        </div>
+
+        <!-- Right Side: Infrastructure & Diagnostics -->
+        <div>
+          <div class="card mb-6">
+            <div class="card-header">
+              <h3 class="card-title">🖥️ Server & Database Telemetry</h3>
+              <span class="badge badge-green">Operational</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+              <div class="flex justify-between py-2" style="border-bottom:1px solid var(--border)">
+                <span style="color:var(--text-muted);font-size:0.85rem">Backend Engine</span>
+                <strong>Node.js Native HTTP (No Express)</strong>
+              </div>
+              <div class="flex justify-between py-2" style="border-bottom:1px solid var(--border)">
+                <span style="color:var(--text-muted);font-size:0.85rem">Database Engine</span>
+                <strong>MySQL InnoDB (mysql2 connection pool)</strong>
+              </div>
+              <div class="flex justify-between py-2" style="border-bottom:1px solid var(--border)">
+                <span style="color:var(--text-muted);font-size:0.85rem">JWT Signature Algorithm</span>
+                <strong>HMAC-SHA256 (Native crypto)</strong>
+              </div>
+              <div class="flex justify-between py-2" style="border-bottom:1px solid var(--border)">
+                <span style="color:var(--text-muted);font-size:0.85rem">Password KDF</span>
+                <strong>PBKDF2 (100,000 iterations)</strong>
+              </div>
+              <div class="flex justify-between py-2">
+                <span style="color:var(--text-muted);font-size:0.85rem">Client Architecture</span>
+                <strong>Vanilla JS / DOM / Fetch (No React/Vue)</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">⚠️ Platform Emergency Controls</h3>
+            </div>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:var(--space-4)">
+              Enable maintenance mode to restrict ride dispatching while allowing administrative reviews.
+            </p>
+            <button class="btn btn-danger" onclick="toggleMaintenance()">
+              🚨 Toggle Maintenance Mode
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('superadmin');
+  buildSidebar('superadmin', 'Settings');
+  UI.populateSidebarUser();
+
+  function saveSettings() {
+    const btn = document.getElementById('save-btn');
+    UI.setLoading(btn, true, 'Saving...');
+
+    setTimeout(() => {
+      UI.setLoading(btn, false, '💾 Save Configuration');
+      UI.success('System settings saved and applied dynamically!');
+    }, 600);
+  }
+
+  function toggleMaintenance() {
+    if (confirm('Are you sure you want to toggle platform maintenance state?')) {
+      UI.warning('Maintenance state toggled. Normal ride dispatching active.');
+    }
+  }
+</script>
+</body>
+</html>

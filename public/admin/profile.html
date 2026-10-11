@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Profile — CabGo</title>
+  <meta name="description" content="View and update your administrator credentials and account settings." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:var(--space-6)">
+
+        <!-- Left info card -->
+        <div class="card text-center">
+          <div class="avatar" style="width:84px;height:84px;font-size:2rem;margin:0 auto var(--space-4) auto;" id="admin-avatar">A</div>
+          <h3 id="admin-name" style="margin-bottom:var(--space-1)">Loading...</h3>
+          <p id="admin-email" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:var(--space-3)">—</p>
+          <span class="badge badge-green" id="admin-role-badge">Administrator</span>
+
+          <div style="border-top:1px solid var(--border);padding-top:var(--space-4);margin-top:var(--space-4);text-align:left">
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Status</span>
+              <span class="badge badge-green">Active</span>
+            </div>
+            <div class="flex justify-between py-2">
+              <span style="color:var(--text-muted);font-size:0.85rem">Role Level</span>
+              <strong style="text-transform:capitalize" id="admin-role-text">admin</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right edit form -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Administrator Account Details</h3>
+              <p class="card-subtitle">Manage personal contact info</p>
+            </div>
+          </div>
+
+          <form id="admin-form" onsubmit="event.preventDefault(); saveAdminInfo();">
+            <div class="form-group mb-4">
+              <label class="form-label">Full Name</label>
+              <input type="text" id="name-input" class="form-control" required />
+            </div>
+
+            <div class="form-group mb-4">
+              <label class="form-label">Email Address</label>
+              <input type="email" id="email-input" class="form-control" disabled />
+              <small style="color:var(--text-muted)">Contact Super Admin to modify registered email address.</small>
+            </div>
+
+            <div class="form-group mb-5">
+              <label class="form-label">Mobile Number</label>
+              <input type="tel" id="mobile-input" class="form-control" required />
+            </div>
+
+            <button type="submit" id="save-btn" class="btn btn-primary">
+              💾 Save Profile
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('admin', 'superadmin');
+  const user = Auth.getUser();
+  buildSidebar(user?.role || 'admin', 'My Profile');
+  UI.populateSidebarUser();
+
+  async function loadAdminProfile() {
+    const res = await API.get('/api/auth/me');
+    if (!res.success) return;
+    const u = res.data;
+
+    document.getElementById('admin-name').textContent = u.name;
+    document.getElementById('admin-email').textContent = u.email;
+    document.getElementById('admin-avatar').textContent = (u.name || 'A')[0].toUpperCase();
+    document.getElementById('admin-role-badge').textContent = u.role === 'superadmin' ? 'Super Administrator' : 'Administrator';
+    document.getElementById('admin-role-text').textContent = u.role;
+
+    document.getElementById('name-input').value = u.name || '';
+    document.getElementById('email-input').value = u.email || '';
+    document.getElementById('mobile-input').value = u.mobile || '';
+  }
+
+  async function saveAdminInfo() {
+    const btn = document.getElementById('save-btn');
+    UI.setLoading(btn, true, 'Saving...');
+
+    const res = await API.put('/api/passenger/profile', {
+      name: document.getElementById('name-input').value.trim(),
+      mobile: document.getElementById('mobile-input').value.trim()
+    });
+
+    UI.setLoading(btn, false, '💾 Save Profile');
+
+    if (res.success) {
+      UI.success('Profile updated successfully!');
+      loadAdminProfile();
+    } else {
+      UI.error(res.message || 'Update failed');
+    }
+  }
+
+  loadAdminProfile();
+</script>
+</body>
+</html>

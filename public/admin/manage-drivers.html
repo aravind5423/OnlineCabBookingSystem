@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Drivers — CabGo Admin</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <div><h1>🚗 Manage Drivers</h1><p>Review, approve, and manage all drivers</p></div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="card" style="margin-bottom:var(--space-5)">
+        <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;align-items:flex-end">
+          <div class="form-group" style="flex:1;min-width:200px">
+            <label class="form-label">Search</label>
+            <input type="text" class="form-control" id="driver-search" placeholder="Name or email..." oninput="loadDrivers()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select class="form-control" id="driver-status-filter" onchange="loadDrivers()">
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="blocked">Blocked</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <div class="table-header">
+          <h3 style="font-size:1rem;font-weight:600">All Drivers</h3>
+          <span id="driver-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+        </div>
+        <div id="drivers-table">
+          <div class="empty-state"><div class="spinner spinner-lg"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('admin','superadmin');
+  buildSidebar(Auth.getUser().role, 'Manage Drivers');
+  UI.populateSidebarUser();
+
+  async function loadDrivers() {
+    const search = document.getElementById('driver-search').value;
+    const status = document.getElementById('driver-status-filter').value;
+    const res = await API.get('/api/admin/drivers', { search, status });
+    const drivers = res.data?.drivers || [];
+    document.getElementById('driver-count').textContent = `${drivers.length} drivers`;
+
+    if (!drivers.length) {
+      document.getElementById('drivers-table').innerHTML = UI.empty('🚗','No drivers found','Adjust your search filters.');
+      return;
+    }
+    document.getElementById('drivers-table').innerHTML = `
+      <table><thead><tr>
+        <th>Driver</th><th>License</th><th>Vehicle Status</th><th>Availability</th>
+        <th>Verification</th><th>Rating</th><th>Trips</th><th>Actions</th>
+      </tr></thead><tbody>
+      ${drivers.map(d => `<tr>
+        <td>
+          <strong>${d.name}</strong><br>
+          <small style="color:var(--text-muted)">${d.email}</small><br>
+          <small>${d.mobile}</small>
+        </td>
+        <td>${d.license_no}<br><small style="color:var(--text-muted)">Exp: ${d.license_expiry?.split('T')[0]||'—'}</small></td>
+        <td>${UI.badge(d.status)}</td>
+        <td>${UI.badge(d.availability)}</td>
+        <td>${UI.badge(d.verification_status)}</td>
+        <td>${UI.stars(d.rating||5)} ${d.rating||'5.0'}</td>
+        <td>${d.total_trips}</td>
+        <td>
+          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+            ${d.verification_status === 'pending' ? `
+              <button class="btn btn-success btn-sm" onclick="approveDriver(${d.user_id},'approve')">✓ Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="approveDriver(${d.user_id},'reject')">✕ Reject</button>
+            ` : ''}
+            ${d.status === 'blocked'
+              ? `<button class="btn btn-ghost btn-sm" onclick="blockUser(${d.user_id},'unblock')">🔓 Unblock</button>`
+              : `<button class="btn btn-danger btn-sm" onclick="blockUser(${d.user_id},'block')">🔒 Block</button>`}
+          </div>
+        </td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  }
+
+  async function approveDriver(userId, action) {
+    if (!UI.confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} this driver?`)) return;
+    const res = await API.put(`/api/admin/drivers/${userId}/approve`, { action });
+    if (res.success) { UI.success(`Driver ${action}d`); loadDrivers(); }
+    else UI.error(res.message);
+  }
+
+  async function blockUser(userId, action) {
+    if (!UI.confirm(`${action} this user?`)) return;
+    const res = await API.put(`/api/admin/users/${userId}/block`, { action });
+    if (res.success) { UI.success(`User ${action}ed`); loadDrivers(); }
+    else UI.error(res.message);
+  }
+
+  loadDrivers();
+</script>
+</body>
+</html>

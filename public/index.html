@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CabGo — Online Cab Booking System</title>
+  <meta name="description" content="Book reliable cabs instantly. Fast, safe, and affordable rides at your fingertips with CabGo online cab booking system." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    /* ── Hero Section ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--grad-hero);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -200px; right: -200px;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -200px; left: -200px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(255,159,28,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 72px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--space-10);
+      background: rgba(7,10,18,0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: var(--space-3);
+      text-decoration: none;
+    }
+    .nav-brand-icon {
+      width: 40px; height: 40px;
+      background: var(--grad-accent);
+      border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .nav-brand-name {
+      font-family: var(--font-heading);
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    .nav-brand-name span { color: var(--accent); }
+    .nav-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+    /* ── Hero Content ── */
+    .hero-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px var(--space-8) var(--space-16);
+      position: relative;
+      z-index: 1;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: 0.4rem 1rem;
+      background: rgba(255,159,28,0.12);
+      border: 1px solid rgba(255,159,28,0.25);
+      border-radius: var(--radius-full);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: var(--space-6);
+      animation: fadeInUp 0.5s ease both;
+    }
+    .hero-badge::before { content: '🚖'; }
+    .hero-title {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: var(--space-6);
+      animation: fadeInUp 0.5s 0.1s ease both;
+    }
+    .hero-subtitle {
+      font-size: 1.2rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin-bottom: var(--space-10);
+      animation: fadeInUp 0.5s 0.2s ease both;
+    }
+    .hero-actions {
+      display: flex; gap: var(--space-4); flex-wrap: wrap; justify-content: center;
+      animation: fadeInUp 0.5s 0.3s ease both;
+    }
+    .hero-actions .btn-lg { min-width: 180px; }
+
+    /* ── Quick Book Form ── */
+    .quick-book {
+      background: var(--glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      max-width: 700px;
+      width: 100%;
+      margin: var(--space-10) auto 0;
+      animation: fadeInUp 0.5s 0.4s ease both;
+    }
+    .quick-book h3 { font-size: 1.1rem; margin-bottom: var(--space-5); }
+    .quick-book-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: var(--space-3);
+      align-items: end;
+    }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+      background: var(--bg-raised);
+      border-top: 1px solid var(--border);
+      padding: var(--space-8) var(--space-10);
+    }
+    .stats-bar-inner {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-4);
+      text-align: center;
+    }
+    .stat-number {
+      font-family: var(--font-heading);
+      font-size: 2.25rem;
+      font-weight: 800;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-name { font-size: 0.875rem; color: var(--text-muted); margin-top: var(--space-1); }
+
+    /* ── Features Section ── */
+    .features {
+      padding: var(--space-20) var(--space-10);
+      max-width: var(--content-max);
+      margin: 0 auto;
+    }
+    .section-header { text-align: center; margin-bottom: var(--space-12); }
+    .section-tag {
+      display: inline-block;
+      padding: 0.3rem 1rem;
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: var(--radius-full);
+      color: var(--primary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: var(--space-4);
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-5);
+    }
+    .feature-card {
+      background: var(--grad-card);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      transition: var(--transition-slow);
+    }
+    .feature-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-glow); border-color: var(--border-accent); }
+    .feature-icon {
+      width: 56px; height: 56px;
+      border-radius: var(--radius-lg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: var(--space-5);
+    }
+    .feature-card h3 { font-size: 1.1rem; margin-bottom: var(--space-2); }
+    .feature-card p  { font-size: 0.875rem; color: var(--text-muted); }
+
+    /* ── Roles Section ── */
+    .roles { background: var(--bg-raised); padding: var(--space-20) var(--space-10); }
+    .roles-inner { max-width: var(--content-max); margin: 0 auto; }
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: var(--space-5);
+      margin-top: var(--space-12);
+    }
+    .role-card {
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      text-align: center;
+      border: 1px solid var(--glass-border);
+      transition: var(--transition);
+      cursor: pointer;
+    }
+    .role-card:hover { transform: translateY(-4px); }
+    .role-card.passenger { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04)); }
+    .role-card.driver    { background: linear-gradient(135deg, rgba(255,159,28,0.12), rgba(255,159,28,0.04)); }
+    .role-card.admin     { background: linear-gradient(135deg, rgba(34,197,94,0.12),  rgba(34,197,94,0.04)); }
+    .role-card.superadmin{ background: linear-gradient(135deg, rgba(167,139,250,0.12),rgba(167,139,250,0.04)); }
+    .role-icon { font-size: 2.5rem; margin-bottom: var(--space-4); }
+    .role-card h3 { font-size: 1.1rem; margin-bottom: var(--space-2); }
+    .role-card p  { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--bg-raised);
+      border-top: 1px solid var(--border);
+      padding: var(--space-8) var(--space-10);
+      text-align: center;
+    }
+    footer p { font-size: 0.875rem; color: var(--text-muted); }
+
+    @media(max-width:768px) {
+      .navbar { padding: 0 var(--space-5); }
+      .quick-book-grid { grid-template-columns: 1fr; }
+      .stats-bar-inner { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="/" class="nav-brand">
+      <div class="nav-brand-icon">🚖</div>
+      <span class="nav-brand-name">Cab<span>Go</span></span>
+    </a>
+    <div class="nav-actions">
+      <a href="/login.html"    class="btn btn-ghost btn-sm" id="btn-login">Login</a>
+      <a href="/register.html" class="btn btn-accent btn-sm" id="btn-register">Register</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">Your Ride, Your Way</div>
+      <h1 class="hero-title">
+        Book a Cab <br>
+        <span class="gradient-text">Instantly & Safely</span>
+      </h1>
+      <p class="hero-subtitle">
+        Fast, reliable, and affordable rides at your fingertips.
+        Track your driver in real-time and pay seamlessly.
+      </p>
+      <div class="hero-actions">
+        <a href="/register.html" class="btn btn-primary btn-lg">🚀 Book a Ride</a>
+        <a href="/search-ride.html" class="btn btn-ghost btn-lg">🔍 Search Rides</a>
+      </div>
+
+      <!-- Quick Book -->
+      <div class="quick-book">
+        <h3>⚡ Quick Ride Estimate</h3>
+        <div class="quick-book-grid">
+          <div class="form-group">
+            <label class="form-label">📍 Pickup Location</label>
+            <input type="text" id="pickup" class="form-control" placeholder="Enter pickup..." />
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏁 Destination</label>
+            <input type="text" id="destination" class="form-control" placeholder="Where to?" />
+          </div>
+          <button class="btn btn-accent" onclick="goSearch()" id="btn-estimate">Estimate</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar">
+    <div class="stats-bar-inner">
+      <div>
+        <div class="stat-number">10,000+</div>
+        <div class="stat-name">Happy Passengers</div>
+      </div>
+      <div>
+        <div class="stat-number">2,500+</div>
+        <div class="stat-name">Active Drivers</div>
+      </div>
+      <div>
+        <div class="stat-number">50,000+</div>
+        <div class="stat-name">Trips Completed</div>
+      </div>
+      <div>
+        <div class="stat-number">4.8 ★</div>
+        <div class="stat-name">Average Rating</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="section-header">
+      <div class="section-tag">Why CabGo?</div>
+      <h2>Everything You Need for a<br><span class="gradient-text">Perfect Ride</span></h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(59,130,246,0.15)">⚡</div>
+        <h3>Instant Booking</h3>
+        <p>Book a cab in under 30 seconds. Real-time driver matching with live status updates.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(34,197,94,0.15)">🛡️</div>
+        <h3>Safe & Verified</h3>
+        <p>All drivers are background-checked and verified. Share your trip with loved ones.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(255,159,28,0.15)">💰</div>
+        <h3>Fair Pricing</h3>
+        <p>Transparent fare estimates before you book. No surge surprises, pay what you see.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(167,139,250,0.15)">📱</div>
+        <h3>Real-time Tracking</h3>
+        <p>Track your driver in real-time. Know exactly when they'll arrive.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(239,68,68,0.15)">⭐</div>
+        <h3>Rate & Review</h3>
+        <p>Rate your trip and help maintain our high-quality driver fleet.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(6,182,212,0.15)">🗺️</div>
+        <h3>Multiple Ride Types</h3>
+        <p>Choose from Bike, Auto, Hatchback, Sedan or SUV based on your needs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roles Section -->
+  <section class="roles" id="roles">
+    <div class="roles-inner">
+      <div class="section-header">
+        <div class="section-tag">Access Levels</div>
+        <h2>Built for <span class="gradient-text">Everyone</span></h2>
+        <p style="color:var(--text-muted);margin-top:var(--space-3)">Four powerful roles, one unified platform.</p>
+      </div>
+      <div class="roles-grid">
+        <div class="role-card passenger" onclick="window.location.href='/register.html'">
+          <div class="role-icon">🧳</div>
+          <h3>Passenger</h3>
+          <p>Book rides, track trips, view history and rate drivers seamlessly.</p>
+        </div>
+        <div class="role-card driver" onclick="window.location.href='/register.html'">
+          <div class="role-icon">🚗</div>
+          <h3>Driver</h3>
+          <p>Accept rides, manage your vehicle, track earnings and ratings.</p>
+        </div>
+        <div class="role-card admin" onclick="window.location.href='/login.html'">
+          <div class="role-icon">⚙️</div>
+          <h3>Admin</h3>
+          <p>Manage users, approve drivers, set fares, and view reports.</p>
+        </div>
+        <div class="role-card superadmin" onclick="window.location.href='/login.html'">
+          <div class="role-icon">👑</div>
+          <h3>Super Admin</h3>
+          <p>Full system control: admin management, permissions, and logs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2024 CabGo. Online Cab Booking System — Web Technology Assignment.</p>
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    // Redirect logged-in users
+    Auth.redirectIfLoggedIn();
+
+    function goSearch() {
+      const pickup = document.getElementById('pickup').value.trim();
+      const dest   = document.getElementById('destination').value.trim();
+      if (!pickup || !dest) {
+        alert('Please enter pickup and destination');
+        return;
+      }
+      window.location.href = `/search-ride.html?pickup=${encodeURIComponent(pickup)}&dest=${encodeURIComponent(dest)}`;
+    }
+
+    document.getElementById('destination').addEventListener('keydown', e => {
+      if (e.key === 'Enter') goSearch();
+    });
+  </script>
+</body>
+</html>

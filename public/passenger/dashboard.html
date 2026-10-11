@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Passenger Dashboard — CabGo</title>
+  <meta name="description" content="Manage your rides, view trip history and book new cabs from your CabGo passenger dashboard." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    .quick-book-card {
+      background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(167,139,250,0.08));
+      border: 1px solid rgba(59,130,246,0.25);
+    }
+    .quick-book-card h3 { font-size: 1.3rem; margin-bottom: var(--space-4); }
+    .driver-card {
+      display: flex; align-items: center; gap: var(--space-4);
+      padding: var(--space-4); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); background: var(--glass);
+      margin-bottom: var(--space-3); transition: var(--transition);
+    }
+    .driver-card:hover { border-color: var(--border-accent); }
+    .driver-avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--grad-primary);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1.1rem; color: #fff; flex-shrink: 0;
+    }
+    .driver-info { flex: 1; }
+    .driver-info h5 { font-size: 0.95rem; color: var(--text-primary); }
+    .driver-info p  { font-size: 0.8rem; color: var(--text-muted); }
+    .recent-trip-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: var(--space-3); align-items: center; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <!-- Stats Grid -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:var(--space-6);margin-bottom:var(--space-6)">
+
+        <!-- Quick Book -->
+        <div class="card quick-book-card">
+          <h3>🚖 Quick Book a Ride</h3>
+          <div class="form-group" style="margin-bottom:var(--space-3)">
+            <label class="form-label">📍 Pickup Location</label>
+            <input type="text" id="pickup" class="form-control" placeholder="Enter pickup location" />
+          </div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">🏁 Destination</label>
+            <input type="text" id="destination" class="form-control" placeholder="Where to?" />
+          </div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">🚗 Vehicle Type</label>
+            <select id="vehicle-type" class="form-control">
+              <option value="bike">🏍️ Bike — Fastest</option>
+              <option value="auto">🛺 Auto — Affordable</option>
+              <option value="hatchback">🚙 Hatchback — Budget</option>
+              <option value="sedan" selected>🚗 Sedan — Comfortable</option>
+              <option value="suv">🚐 SUV — Premium</option>
+            </select>
+          </div>
+          <button class="btn btn-accent btn-lg w-full" id="search-btn" onclick="searchRides()">
+            🔍 Search Rides
+          </button>
+        </div>
+
+        <!-- Active Trip Widget -->
+        <div class="card" id="active-trip-card">
+          <h3 style="margin-bottom:var(--space-4)">🔴 Active Trip</h3>
+          <div id="active-trip-content">
+            <div class="empty-state" style="padding:var(--space-8)">
+              <div class="empty-icon">🚖</div>
+              <div class="empty-title">No Active Trip</div>
+              <p class="empty-text">Book a ride to get started!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Drivers / Search Results -->
+      <div class="card" id="search-results-card" style="display:none;margin-bottom:var(--space-6)">
+        <div class="flex justify-between items-center" style="margin-bottom:var(--space-5)">
+          <h3>🚗 Available Drivers</h3>
+          <div id="fare-estimate-mini"></div>
+        </div>
+        <div id="drivers-list"></div>
+      </div>
+
+      <!-- Recent Trips -->
+      <div class="card">
+        <div class="flex justify-between items-center" style="margin-bottom:var(--space-5)">
+          <h3>📋 Recent Trips</h3>
+          <a href="/passenger/trip-history.html" class="btn btn-ghost btn-sm">View All →</a>
+        </div>
+        <div id="recent-trips"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Book Ride Modal -->
+<div class="modal-overlay hidden" id="book-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Confirm Booking</h3>
+      <button class="modal-close" onclick="UI.closeModal('book-modal')">✕</button>
+    </div>
+    <div id="book-modal-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="UI.closeModal('book-modal')">Cancel</button>
+      <button class="btn btn-primary" id="confirm-book-btn" onclick="confirmBooking()">✅ Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('passenger');
+  buildSidebar('passenger', 'Dashboard');
+  UI.populateSidebarUser();
+
+  let selectedDriver = null;
+  let lastSearch = {};
+
+  async function loadDashboard() {
+    // Load stats
+    const hist = await API.get('/api/rides/history');
+    const trips = hist.data || [];
+    const completed = trips.filter(t => t.trip_status === 'completed').length;
+    const cancelled = trips.filter(t => t.request_status === 'cancelled').length;
+    const totalSpent = trips.reduce((s, t) => s + parseFloat(t.fare || 0), 0);
+
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card animate-fade-up">
+        <div class="stat-icon blue">🚖</div>
+        <div class="stat-content">
+          <div class="stat-label">Total Trips</div>
+          <div class="stat-value">${trips.length}</div>
+        </div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:0.1s">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-content">
+          <div class="stat-label">Completed</div>
+          <div class="stat-value">${completed}</div>
+        </div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:0.2s">
+        <div class="stat-icon red">❌</div>
+        <div class="stat-content">
+          <div class="stat-label">Cancelled</div>
+          <div class="stat-value">${cancelled}</div>
+        </div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:0.3s">
+        <div class="stat-icon amber">💰</div>
+        <div class="stat-content">
+          <div class="stat-label">Total Spent</div>
+          <div class="stat-value">${UI.rupee(totalSpent)}</div>
+        </div>
+      </div>`;
+
+    // Active Trip
+    const active = await API.get('/api/rides/active');
+    if (active.data) {
+      const t = active.data;
+      document.getElementById('active-trip-content').innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div class="flex justify-between items-center">
+            ${UI.badge(t.trip_status || t.request_status)}
+            <span style="font-size:0.8rem;color:var(--text-muted)">#${t.request_id}</span>
+          </div>
+          <div>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:2px">From</p>
+            <strong style="font-size:0.9rem">${t.pickup_location}</strong>
+          </div>
+          <div>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:2px">To</p>
+            <strong style="font-size:0.9rem">${t.destination}</strong>
+          </div>
+          ${t.driver_name ? `<div class="driver-card">
+            <div class="driver-avatar">${t.driver_name[0]}</div>
+            <div class="driver-info">
+              <h5>${t.driver_name}</h5>
+              <p>📞 ${t.driver_mobile} · ${t.vehicle_number||''} ${t.model||''}</p>
+            </div>
+          </div>` : '<p style="color:var(--text-muted);font-size:0.875rem">🔍 Looking for driver...</p>'}
+          <div class="flex gap-3">
+            <span class="fare-amount" style="font-size:1.5rem">${UI.rupee(t.estimated_fare)}</span>
+            <a href="/passenger/active-trip.html" class="btn btn-primary btn-sm" style="margin-left:auto">View Trip →</a>
+          </div>
+        </div>`;
+    }
+
+    // Recent trips (last 5)
+    const recent = trips.slice(0, 5);
+    if (!recent.length) {
+      document.getElementById('recent-trips').innerHTML = UI.empty('🚖', 'No trips yet', 'Book your first ride!');
+    } else {
+      document.getElementById('recent-trips').innerHTML = `
+        <table><thead><tr>
+          <th>Route</th><th>Date</th><th>Fare</th><th>Status</th>
+        </tr></thead><tbody>
+        ${recent.map(t => `<tr>
+          <td><strong>${t.pickup_location?.substring(0,20)||'—'}</strong><br>
+              <small style="color:var(--text-muted)">→ ${t.destination?.substring(0,20)||'—'}</small></td>
+          <td>${UI.formatDate(t.start_time || t.requested_at)}</td>
+          <td><strong>${UI.rupee(t.fare || t.estimated_fare)}</strong></td>
+          <td>${UI.badge(t.trip_status || t.request_status)}</td>
+        </tr>`).join('')}
+        </tbody></table>`;
+    }
+  }
+
+  async function searchRides() {
+    const pickup      = document.getElementById('pickup').value.trim();
+    const destination = document.getElementById('destination').value.trim();
+    const vehicleType = document.getElementById('vehicle-type').value;
+    if (!pickup || !destination) return UI.warning('Please enter pickup and destination');
+
+    const btn = document.getElementById('search-btn');
+    UI.setLoading(btn, true, 'Searching...');
+
+    const result = await API.post('/api/rides/search', { pickup_location: pickup, destination, vehicle_type: vehicleType });
+    UI.setLoading(btn, false, '🔍 Search Rides');
+
+    if (!result.success) return UI.error(result.message);
+
+    lastSearch = { pickup, destination, vehicleType, fare: result.data.fare_estimate, km: result.data.estimated_km };
+
+    const card = document.getElementById('search-results-card');
+    card.style.display = 'block';
+
+    const fareInfo = result.data.fare_estimate;
+    document.getElementById('fare-estimate-mini').innerHTML = fareInfo
+      ? `<span class="fare-amount" style="font-size:1.4rem">${UI.rupee(fareInfo.estimated_fare)}</span>
+         <span style="font-size:0.8rem;color:var(--text-muted);margin-left:8px">${result.data.estimated_km} km</span>`
+      : '';
+
+    const drivers = result.data.drivers || [];
+    if (!drivers.length) {
+      document.getElementById('drivers-list').innerHTML = UI.empty('🚗','No drivers available','Try a different vehicle type or try again later.');
+      return;
+    }
+    document.getElementById('drivers-list').innerHTML = drivers.map(d => `
+      <div class="driver-card" style="cursor:pointer" onclick="openBookModal(${JSON.stringify(d).replace(/"/g,'&quot;')})">
+        <div class="driver-avatar">${d.name[0]}</div>
+        <div class="driver-info" style="flex:1">
+          <h5>${d.name}</h5>
+          <p>${UI.stars(d.rating)} ${d.rating} · ${d.total_trips} trips · ${d.model} (${d.vehicle_number})</p>
+        </div>
+        <button class="btn btn-primary btn-sm">Book →</button>
+      </div>`).join('');
+  }
+
+  function openBookModal(driver) {
+    selectedDriver = driver;
+    const f = lastSearch.fare;
+    document.getElementById('book-modal-content').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="driver-card">
+          <div class="driver-avatar">${driver.name[0]}</div>
+          <div class="driver-info">
+            <h5>${driver.name}</h5>
+            <p>${driver.model} · ${driver.vehicle_number}</p>
+          </div>
+        </div>
+        <div><p style="color:var(--text-muted);font-size:0.8rem">From</p><strong>${lastSearch.pickup}</strong></div>
+        <div><p style="color:var(--text-muted);font-size:0.8rem">To</p><strong>${lastSearch.destination}</strong></div>
+        ${f ? `<div class="fare-card">
+          <div class="fare-amount">${UI.rupee(f.estimated_fare)}</div>
+          <div class="fare-breakdown">
+            <div class="fare-row"><span>Base fare</span><span>${UI.rupee(f.breakdown?.base_fare)}</span></div>
+            <div class="fare-row"><span>Distance (${lastSearch.km} km)</span><span>${UI.rupee(f.breakdown?.distance_charge)}</span></div>
+          </div>
+        </div>` : ''}
+      </div>`;
+    UI.openModal('book-modal');
+  }
+
+  async function confirmBooking() {
+    const btn = document.getElementById('confirm-book-btn');
+    UI.setLoading(btn, true, 'Booking...');
+
+    const result = await API.post('/api/rides/book', {
+      pickup_location: lastSearch.pickup,
+      destination:     lastSearch.destination,
+      vehicle_type:    lastSearch.vehicleType
+    });
+
+    UI.setLoading(btn, false, '✅ Confirm Booking');
+    if (result.success) {
+      UI.closeModal('book-modal');
+      UI.success('Ride booked! Looking for your driver...');
+      setTimeout(() => window.location.href = '/passenger/active-trip.html', 1500);
+    } else {
+      UI.error(result.message || 'Booking failed');
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

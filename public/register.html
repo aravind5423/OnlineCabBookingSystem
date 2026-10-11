@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register — CabGo</title>
+  <meta name="description" content="Create your CabGo account as a passenger or driver and start booking rides today." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:var(--space-8) var(--space-4); }
+    .bg-blobs { position:fixed;inset:0;pointer-events:none;z-index:0; }
+    .blob { position:absolute;border-radius:50%;filter:blur(80px);opacity:0.10; }
+    .blob-1 { width:600px;height:600px;background:var(--primary);top:-200px;right:-200px;animation:float 8s ease-in-out infinite; }
+    .blob-2 { width:400px;height:400px;background:var(--accent);bottom:-100px;left:-100px;animation:float 10s 2s ease-in-out infinite; }
+
+    .auth-container { width:100%;max-width:560px;position:relative;z-index:1; }
+    .auth-card { background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-xl);padding:var(--space-10);box-shadow:var(--shadow-lg);animation:fadeInUp 0.5s ease; }
+    .auth-logo { display:flex;align-items:center;gap:var(--space-3);text-decoration:none;margin-bottom:var(--space-6); }
+    .auth-logo-icon { width:40px;height:40px;background:var(--grad-accent);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:1.2rem; }
+    .auth-logo-text { font-family:var(--font-heading);font-size:1.2rem;font-weight:800; }
+    .auth-logo-text span { color:var(--accent); }
+    .auth-title    { font-size:1.75rem;font-weight:800;margin-bottom:var(--space-2); }
+    .auth-subtitle { color:var(--text-muted);font-size:0.875rem;margin-bottom:var(--space-6); }
+
+    /* Role Tabs */
+    .role-tabs { display:flex;gap:var(--space-3);margin-bottom:var(--space-6); }
+    .role-tab {
+      flex:1;padding:0.875rem;border:2px solid var(--border);border-radius:var(--radius-lg);
+      background:none;color:var(--text-secondary);cursor:pointer;
+      font-size:0.875rem;font-weight:500;transition:var(--transition);text-align:center;
+    }
+    .role-tab:hover { border-color:var(--primary);color:var(--text-primary); }
+    .role-tab.active { border-color:var(--primary);background:rgba(59,130,246,0.1);color:var(--primary); }
+    .role-tab .tab-icon { font-size:1.4rem;display:block;margin-bottom:var(--space-1); }
+
+    .driver-fields { display:none; }
+    .driver-fields.show { display:contents; }
+
+    .error-alert { background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:0.75rem 1rem;color:var(--danger);font-size:0.875rem;display:none; }
+    .error-alert.show { display:block; }
+    .success-alert { background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:var(--radius);padding:0.75rem 1rem;color:var(--success);font-size:0.875rem;display:none; }
+    .success-alert.show { display:block; }
+
+    .form { display:flex;flex-direction:column;gap:var(--space-4); }
+    .auth-link { text-align:center;font-size:0.875rem;color:var(--text-muted);margin-top:var(--space-5); }
+    .auth-link a { color:var(--primary);font-weight:500; }
+
+    .input-icon-wrap { position:relative; }
+    .input-icon { position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:1rem;pointer-events:none; }
+    .input-icon-wrap .form-control { padding-left:2.75rem; }
+    .eye-toggle { position:absolute;right:1rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem; }
+  </style>
+</head>
+<body>
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <a href="/" class="auth-logo">
+        <div class="auth-logo-icon">🚖</div>
+        <span class="auth-logo-text">Cab<span>Go</span></span>
+      </a>
+
+      <h1 class="auth-title">Create Account ✨</h1>
+      <p class="auth-subtitle">Join CabGo as a Passenger or Driver</p>
+
+      <!-- Role Selector -->
+      <div class="role-tabs">
+        <button class="role-tab active" id="tab-passenger" onclick="setRole('passenger')">
+          <span class="tab-icon">🧳</span> Passenger
+        </button>
+        <button class="role-tab" id="tab-driver" onclick="setRole('driver')">
+          <span class="tab-icon">🚗</span> Driver
+        </button>
+      </div>
+
+      <div class="error-alert"   id="error-alert"></div>
+      <div class="success-alert" id="success-alert"></div>
+
+      <form class="form" id="register-form" novalidate>
+        <input type="hidden" id="role-input" value="passenger" />
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="name">Full Name *</label>
+            <div class="input-icon-wrap">
+              <span class="input-icon">👤</span>
+              <input type="text" id="name" class="form-control" placeholder="John Doe" required />
+            </div>
+            <span class="form-error" id="name-error">Name is required</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="mobile">Mobile Number *</label>
+            <div class="input-icon-wrap">
+              <span class="input-icon">📱</span>
+              <input type="tel" id="mobile" class="form-control" placeholder="+91 98765 43210" required />
+            </div>
+            <span class="form-error" id="mobile-error">Mobile is required</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address *</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">✉️</span>
+            <input type="email" id="email" class="form-control" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <span class="form-error" id="email-error">Enter a valid email</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password *</label>
+          <div class="input-icon-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="password" class="form-control" placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password" />
+            <button type="button" class="eye-toggle" id="eye-toggle">👁️</button>
+          </div>
+          <span class="form-error" id="pass-error">Password must be at least 8 characters</span>
+        </div>
+
+        <!-- Driver-only fields -->
+        <div class="driver-fields form-grid" id="driver-fields">
+          <div class="form-group">
+            <label class="form-label" for="license_no">License Number *</label>
+            <div class="input-icon-wrap">
+              <span class="input-icon">📋</span>
+              <input type="text" id="license_no" class="form-control" placeholder="DL1234567890" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="license_expiry">License Expiry *</label>
+            <input type="date" id="license_expiry" class="form-control" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg w-full" id="submit-btn">
+          Create Account
+        </button>
+      </form>
+
+      <div class="auth-link">
+        Already have an account? <a href="/login.html">Sign in →</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    Auth.redirectIfLoggedIn();
+
+    function setRole(role) {
+      document.getElementById('role-input').value = role;
+      document.getElementById('tab-passenger').classList.toggle('active', role === 'passenger');
+      document.getElementById('tab-driver').classList.toggle('active', role === 'driver');
+      document.getElementById('driver-fields').classList.toggle('show', role === 'driver');
+    }
+
+    document.getElementById('eye-toggle').addEventListener('click', () => {
+      const p = document.getElementById('password');
+      p.type = p.type === 'password' ? 'text' : 'password';
+    });
+
+    const form       = document.getElementById('register-form');
+    const submitBtn  = document.getElementById('submit-btn');
+    const errAlert   = document.getElementById('error-alert');
+    const succAlert  = document.getElementById('success-alert');
+
+    function showError(msg)   { errAlert.textContent = msg; errAlert.classList.add('show'); succAlert.classList.remove('show'); }
+    function showSuccess(msg) { succAlert.textContent = msg; succAlert.classList.add('show'); errAlert.classList.remove('show'); }
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      errAlert.classList.remove('show');
+
+      const role      = document.getElementById('role-input').value;
+      const name      = document.getElementById('name').value.trim();
+      const email     = document.getElementById('email').value.trim();
+      const password  = document.getElementById('password').value;
+      const mobile    = document.getElementById('mobile').value.trim();
+
+      if (!name)                  { document.getElementById('name-error').classList.add('show'); return; }
+      if (!email)                 { document.getElementById('email-error').classList.add('show'); return; }
+      if (password.length < 8)   { document.getElementById('pass-error').classList.add('show'); return; }
+
+      document.querySelectorAll('.form-error').forEach(el => el.classList.remove('show'));
+
+      const payload = { name, email, password, mobile, role };
+      if (role === 'driver') {
+        payload.license_no      = document.getElementById('license_no').value.trim();
+        payload.license_expiry  = document.getElementById('license_expiry').value;
+        if (!payload.license_no || !payload.license_expiry) {
+          return showError('License number and expiry are required for drivers');
+        }
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner"></span> Creating Account...';
+
+      const result = await API.post('/api/auth/register', payload);
+
+      if (result.success) {
+        showSuccess('Account created! Redirecting to login...');
+        setTimeout(() => window.location.href = '/login.html', 1800);
+      } else {
+        showError(result.message || 'Registration failed');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Profile — CabGo</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <div><h1>👤 My Profile</h1><p>Manage your personal information</p></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:var(--space-6)">
+        <!-- Avatar Card -->
+        <div class="card" style="text-align:center;height:fit-content">
+          <div id="profile-avatar" style="width:90px;height:90px;border-radius:50%;background:var(--grad-primary);display:flex;align-items:center;justify-content:center;font-size:2.5rem;font-weight:700;color:#fff;margin:0 auto var(--space-4)">U</div>
+          <h3 id="profile-name">Loading...</h3>
+          <p id="profile-role" style="color:var(--accent);font-weight:600;margin:var(--space-1) 0"></p>
+          <p id="profile-email" style="font-size:0.875rem;color:var(--text-muted)"></p>
+          <div style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border)">
+            <p style="font-size:0.75rem;color:var(--text-muted)">Member since</p>
+            <p id="profile-since" style="font-size:0.875rem;font-weight:500"></p>
+          </div>
+        </div>
+
+        <!-- Edit Form -->
+        <div>
+          <div class="card" style="margin-bottom:var(--space-5)">
+            <h3 style="margin-bottom:var(--space-5)">✏️ Personal Information</h3>
+            <form id="profile-form" style="display:flex;flex-direction:column;gap:var(--space-4)">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Full Name</label>
+                  <input type="text" id="pf-name" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Mobile Number</label>
+                  <input type="tel" id="pf-mobile" class="form-control" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Default Address</label>
+                <input type="text" id="pf-address" class="form-control" placeholder="Your home/office address" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Emergency Contact</label>
+                <input type="tel" id="pf-emergency" class="form-control" placeholder="Emergency phone number" />
+              </div>
+              <button type="submit" class="btn btn-primary" id="save-profile-btn" style="align-self:flex-start">
+                💾 Save Changes
+              </button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom:var(--space-5)">🔒 Change Password</h3>
+            <form id="password-form" style="display:flex;flex-direction:column;gap:var(--space-4)">
+              <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" id="cur-pass" class="form-control" placeholder="Current password" />
+              </div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">New Password</label>
+                  <input type="password" id="new-pass" class="form-control" placeholder="Min 8 characters" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Confirm New Password</label>
+                  <input type="password" id="confirm-pass" class="form-control" placeholder="Repeat password" />
+                </div>
+              </div>
+              <button type="submit" class="btn btn-ghost" id="save-pass-btn" style="align-self:flex-start">
+                🔑 Update Password
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('passenger');
+  buildSidebar('passenger','My Profile');
+  UI.populateSidebarUser();
+
+  async function loadProfile() {
+    const res = await API.get('/api/passenger/profile');
+    if (!res.success) return;
+    const p = res.data;
+    document.getElementById('profile-avatar').textContent = p.name?.[0]?.toUpperCase() || 'U';
+    document.getElementById('profile-name').textContent   = p.name;
+    document.getElementById('profile-role').textContent   = 'Passenger';
+    document.getElementById('profile-email').textContent  = p.email;
+    document.getElementById('profile-since').textContent  = new Date(p.created_at).toLocaleDateString('en-IN', { year:'numeric', month:'long' });
+    document.getElementById('pf-name').value      = p.name || '';
+    document.getElementById('pf-mobile').value    = p.mobile || '';
+    document.getElementById('pf-address').value   = p.default_address || '';
+    document.getElementById('pf-emergency').value = p.emergency_contact || '';
+  }
+
+  document.getElementById('profile-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('save-profile-btn');
+    UI.setLoading(btn, true, 'Saving...');
+    const res = await API.put('/api/passenger/profile', {
+      name: document.getElementById('pf-name').value,
+      mobile: document.getElementById('pf-mobile').value,
+      default_address: document.getElementById('pf-address').value,
+      emergency_contact: document.getElementById('pf-emergency').value
+    });
+    UI.setLoading(btn, false, '💾 Save Changes');
+    if (res.success) { UI.success('Profile updated!'); loadProfile(); }
+    else UI.error(res.message);
+  });
+
+  document.getElementById('password-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const np = document.getElementById('new-pass').value;
+    const cp = document.getElementById('confirm-pass').value;
+    if (np !== cp) return UI.error('Passwords do not match');
+    if (np.length < 8) return UI.error('Password must be at least 8 characters');
+    UI.info('Password change coming soon (requires current password verification)');
+  });
+
+  loadProfile();
+</script>
+</body>
+</html>

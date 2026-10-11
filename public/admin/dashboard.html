@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — CabGo</title>
+  <link rel="stylesheet" href="/css/global.css" /><link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+      <div class="page-header">
+        <div><h1>📊 Admin Dashboard</h1><p>System overview and live metrics</p></div>
+      </div>
+
+      <!-- KPI Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+        <div class="stat-card skeleton" style="height:100px"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-top:var(--space-6)">
+
+        <!-- Recent Drivers Pending Approval -->
+        <div class="card">
+          <div class="flex justify-between items-center" style="margin-bottom:var(--space-4)">
+            <h3>⏳ Pending Driver Approvals</h3>
+            <a href="/admin/manage-drivers.html" class="btn btn-ghost btn-sm">View All →</a>
+          </div>
+          <div id="pending-drivers"></div>
+        </div>
+
+        <!-- Active Trips -->
+        <div class="card">
+          <div class="flex justify-between items-center" style="margin-bottom:var(--space-4)">
+            <h3>🚦 Active Trips</h3>
+            <a href="/admin/manage-trips.html" class="btn btn-ghost btn-sm">View All →</a>
+          </div>
+          <div id="active-trips-list"></div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card" style="margin-top:var(--space-6)">
+        <h3 style="margin-bottom:var(--space-5)">⚡ Quick Actions</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--space-4)">
+          <a href="/admin/manage-passengers.html" class="btn btn-ghost" style="justify-content:flex-start;gap:var(--space-3);padding:var(--space-4)">
+            <span style="font-size:1.5rem">👥</span> Manage Passengers
+          </a>
+          <a href="/admin/manage-drivers.html" class="btn btn-ghost" style="justify-content:flex-start;gap:var(--space-3);padding:var(--space-4)">
+            <span style="font-size:1.5rem">🚗</span> Manage Drivers
+          </a>
+          <a href="/admin/manage-vehicles.html" class="btn btn-ghost" style="justify-content:flex-start;gap:var(--space-3);padding:var(--space-4)">
+            <span style="font-size:1.5rem">🚘</span> Manage Vehicles
+          </a>
+          <a href="/admin/fare-rules.html" class="btn btn-ghost" style="justify-content:flex-start;gap:var(--space-3);padding:var(--space-4)">
+            <span style="font-size:1.5rem">💲</span> Fare Rules
+          </a>
+          <a href="/admin/reports.html" class="btn btn-ghost" style="justify-content:flex-start;gap:var(--space-3);padding:var(--space-4)">
+            <span style="font-size:1.5rem">📈</span> View Reports
+          </a>
+          <a href="/admin/manage-trips.html" class="btn btn-ghost" style="justify-content:flex-start;gap:var(--space-3);padding:var(--space-4)">
+            <span style="font-size:1.5rem">🗺️</span> All Trips
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script><script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script><script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('admin','superadmin');
+  buildSidebar(Auth.getUser().role, 'Dashboard');
+  UI.populateSidebarUser();
+
+  async function loadDashboard() {
+    const res = await API.get('/api/admin/dashboard');
+    if (!res.success) return;
+    const s = res.data;
+
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card animate-fade-up">
+        <div class="stat-icon blue">👥</div>
+        <div class="stat-content"><div class="stat-label">Passengers</div><div class="stat-value">${s.total_passengers}</div></div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:.05s">
+        <div class="stat-icon amber">🚗</div>
+        <div class="stat-content"><div class="stat-label">Drivers</div><div class="stat-value">${s.total_drivers}</div></div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:.10s">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-content"><div class="stat-label">Completed Trips</div><div class="stat-value">${s.completed_trips}</div></div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:.15s">
+        <div class="stat-icon cyan">🚦</div>
+        <div class="stat-content"><div class="stat-label">Active Trips</div><div class="stat-value">${s.active_trips}</div></div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:.20s">
+        <div class="stat-icon purple">💰</div>
+        <div class="stat-content"><div class="stat-label">Total Revenue</div><div class="stat-value">${UI.rupee(s.total_revenue)}</div></div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:.25s">
+        <div class="stat-icon warning">⏳</div>
+        <div class="stat-content"><div class="stat-label">Pending Approvals</div><div class="stat-value">${s.pending_approvals}</div></div>
+      </div>
+      <div class="stat-card animate-fade-up" style="animation-delay:.30s">
+        <div class="stat-icon red">📬</div>
+        <div class="stat-content"><div class="stat-label">Pending Requests</div><div class="stat-value">${s.pending_requests}</div></div>
+      </div>`;
+
+    // Pending drivers
+    const driverRes = await API.get('/api/admin/drivers', { status: 'active' });
+    const pendingDrivers = (driverRes.data?.drivers || []).filter(d => d.verification_status === 'pending').slice(0, 5);
+    document.getElementById('pending-drivers').innerHTML = pendingDrivers.length
+      ? pendingDrivers.map(d => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;border-bottom:1px solid var(--border)">
+            <div>
+              <strong style="font-size:0.875rem">${d.name}</strong>
+              <p style="font-size:0.75rem;color:var(--text-muted)">${d.email} · ${d.license_no}</p>
+            </div>
+            <div style="display:flex;gap:var(--space-2)">
+              <button class="btn btn-success btn-sm" onclick="approveDriver(${d.user_id},'approve')">✓</button>
+              <button class="btn btn-danger btn-sm" onclick="approveDriver(${d.user_id},'reject')">✕</button>
+            </div>
+          </div>`).join('')
+      : UI.empty('✅', 'No pending approvals', 'All drivers have been reviewed.');
+
+    // Active trips
+    const tripRes = await API.get('/api/admin/trips', { status: 'started' });
+    const activeTrips = (tripRes.data?.trips || []).slice(0, 5);
+    document.getElementById('active-trips-list').innerHTML = activeTrips.length
+      ? activeTrips.map(t => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;border-bottom:1px solid var(--border)">
+            <div>
+              <strong style="font-size:0.875rem">${t.passenger_name} → ${t.driver_name}</strong>
+              <p style="font-size:0.75rem;color:var(--text-muted)">${(t.pickup_location||'').substring(0,30)}...</p>
+            </div>
+            <span class="fare-amount" style="font-size:0.9rem">${UI.rupee(t.estimated_fare)}</span>
+          </div>`).join('')
+      : UI.empty('🚦', 'No active trips', 'All quiet right now.');
+  }
+
+  async function approveDriver(userId, action) {
+    const res = await API.put(`/api/admin/drivers/${userId}/approve`, { action });
+    if (res.success) { UI.success(`Driver ${action}d`); loadDashboard(); }
+    else UI.error(res.message);
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

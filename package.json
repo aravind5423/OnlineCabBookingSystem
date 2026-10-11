@@ -1,0 +1,21 @@
+{
+  "name": "online-cab-booking-system",
+  "version": "1.0.0",
+  "description": "Online Cab Booking System — HTML/CSS + JS + Node.js + MySQL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "init-db": "node database/init.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.6.5",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["cab-booking", "nodejs", "mysql"],
+  "author": "Web Technology Assignment",
+  "license": "MIT"
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Role Permissions — CabGo Super Admin</title>
+  <meta name="description" content="Granular access control and permission matrix management for system administrators." />
+  <link rel="stylesheet" href="/css/global.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div class="main-content">
+    <div class="page-content">
+
+      <div class="card mb-6">
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">Administrator Privilege Delegation</h3>
+            <p class="card-subtitle">Grant or revoke specific functional capabilities per administrator</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="form-label mb-0" for="admin-select" style="white-space:nowrap">Select Admin:</label>
+            <select id="admin-select" class="form-control" style="width:240px" onchange="loadAdminPermissions()">
+              <option value="">Loading admins...</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="permissions-container" style="display:none">
+          <div class="mb-4">
+            <h4 style="font-size:1.05rem;color:var(--text-primary);margin-bottom:var(--space-1)">
+              Active Capabilities for <span id="current-admin-name" style="color:var(--accent)">—</span>
+            </h4>
+            <p style="font-size:0.85rem;color:var(--text-muted)">
+              Changes take effect immediately on the administrator's active session.
+            </p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:var(--space-4)" id="perms-grid">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div id="no-admin-selected" style="padding:var(--space-8);text-align:center;color:var(--text-muted)">
+          👈 Select an administrator from the dropdown above to view and configure their security permissions.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+  Auth.requireRole('superadmin');
+  buildSidebar('superadmin', 'Permissions');
+  UI.populateSidebarUser();
+
+  const allAvailablePermissions = [
+    { key: 'MANAGE_DRIVERS', label: 'Driver Management', desc: 'Approve, reject, and monitor driver registrations.' },
+    { key: 'MANAGE_PASSENGERS', label: 'Passenger Management', desc: 'Inspect rider details, booking history, and block users.' },
+    { key: 'MANAGE_VEHICLES', label: 'Fleet Vehicle Control', desc: 'Verify vehicle registrations and change operational status.' },
+    { key: 'MANAGE_FARES', label: 'Tariff & Fare Rules', desc: 'Update base fares, km rates, and surge pricing factors.' },
+    { key: 'VIEW_REPORTS', label: 'Financial Analytics', desc: 'Access revenue reports and system trip metrics.' },
+    { key: 'MANAGE_AREAS', label: 'Service Areas', desc: 'Configure service zones and operational cities.' }
+  ];
+
+  let adminList = [];
+  let currentGranted = [];
+
+  async function initPage() {
+    const res = await API.get('/api/superadmin/admins');
+    if (!res.success) {
+      UI.error('Failed to load admins');
+      return;
+    }
+
+    adminList = res.data || [];
+    const select = document.getElementById('admin-select');
+
+    if (!adminList.length) {
+      select.innerHTML = '<option value="">No administrators found</option>';
+      return;
+    }
+
+    select.innerHTML = adminList.map(a => `<option value="${a.user_id}">${a.name} (${a.email})</option>`).join('');
+    loadAdminPermissions();
+  }
+
+  async function loadAdminPermissions() {
+    const adminId = document.getElementById('admin-select').value;
+    if (!adminId) return;
+
+    const admin = adminList.find(a => String(a.user_id) === String(adminId));
+    document.getElementById('current-admin-name').textContent = admin?.name || 'Admin';
+
+    const res = await API.get(`/api/superadmin/permissions/${adminId}`);
+    if (!res.success) {
+      UI.error('Failed to fetch permissions');
+      return;
+    }
+
+    currentGranted = (res.data || []).map(p => p.permission_name);
+    document.getElementById('permissions-container').style.display = 'block';
+    document.getElementById('no-admin-selected').style.display = 'none';
+
+    renderPermissionsGrid(parseInt(adminId));
+  }
+
+  function renderPermissionsGrid(adminId) {
+    const grid = document.getElementById('perms-grid');
+
+    grid.innerHTML = allAvailablePermissions.map(p => {
+      const isGranted = currentGranted.includes(p.key);
+      return `
+        <div class="card" style="margin-bottom:0;background:${isGranted ? 'rgba(59,130,246,0.06)' : 'var(--glass)'};border-color:${isGranted ? 'rgba(59,130,246,0.3)' : 'var(--border)'}">
+          <div class="flex justify-between items-start mb-2">
+            <h4 style="font-size:1rem;color:var(--text-primary)">${p.label}</h4>
+            <span class="badge ${isGranted ? 'badge-green' : 'badge-amber'}">${isGranted ? 'Active' : 'Disabled'}</span>
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-muted);min-height:36px;margin-bottom:var(--space-3)">${p.desc}</p>
+          <div>
+            ${isGranted ? `
+              <button class="btn btn-danger btn-sm w-full" onclick="togglePermission(${adminId}, '${p.key}', false)">
+                ✕ Revoke Access
+              </button>
+            ` : `
+              <button class="btn btn-primary btn-sm w-full" onclick="togglePermission(${adminId}, '${p.key}', true)">
+                ✓ Grant Permission
+              </button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function togglePermission(adminId, permKey, grant) {
+    let res;
+    if (grant) {
+      res = await API.post('/api/superadmin/permissions', {
+        admin_id: adminId,
+        permission_name: permKey
+      });
+    } else {
+      res = await API.delete('/api/superadmin/permissions', {
+        admin_id: adminId,
+        permission_name: permKey
+      });
+    }
+
+    if (res.success) {
+      UI.success(grant ? `Granted "${permKey}"` : `Revoked "${permKey}"`);
+      loadAdminPermissions();
+    } else {
+      UI.error(res.message || 'Permission update failed');
+    }
+  }
+
+  initPage();
+</script>
+</body>
+</html>
